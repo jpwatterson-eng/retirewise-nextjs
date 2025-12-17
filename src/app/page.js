@@ -167,9 +167,9 @@ export default function HomePage() {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50">
         <div className="text-center">
-          <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl mx-auto mb-4 flex items-center justify-center text-white font-bold text-2xl animate-pulse">
-            R
-          </div>
+        <div className="w-16 h-16 rounded-2xl mx-auto mb-4 overflow-hidden animate-pulse">
+          <img src="/icons/icon-192x192.png" alt="RetireWise" className="w-full h-full" />
+        </div>
           <p className="text-gray-600">Loading RetireWise...</p>
         </div>
       </div>
@@ -182,8 +182,8 @@ export default function HomePage() {
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
-            R
+          <div className="w-8 h-8 rounded-lg overflow-hidden">
+            <img src="/icons/icon-192x192.png" alt="RetireWise" className="w-full h-full" />
           </div>
           <div>
             <h1 className="text-lg font-bold text-gray-800">RetireWise</h1>
