@@ -1,0 +1,6 @@
+{
+  "buildCommand": "pnpm build",
+  "outputDirectory": "build",
+  "devCommand": "pnpm start",
+  "installCommand": "pnpm install --frozen-lockfile --ignore-scripts=false"
+}
