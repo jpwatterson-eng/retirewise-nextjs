@@ -1,6 +1,6 @@
 {
   "buildCommand": "pnpm build",
-  "outputDirectory": "build",
+  "outputDirectory": ".next",
   "devCommand": "pnpm start",
   "installCommand": "pnpm install --frozen-lockfile --ignore-scripts=false"
 }
