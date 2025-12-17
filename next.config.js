@@ -9,6 +9,7 @@ const withPWA = require('next-pwa')({
 const nextConfig = {
   reactStrictMode: true,
   distDir: '.next',
+  output: 'standalone',
   turbopack: {}, // Add this to silence the warning
 };
 
