@@ -9,7 +9,6 @@ import HomeScreen from '@/components/HomeScreen';
 import ProjectForm from '@/components/ProjectForm';
 import * as unifiedDB from '@/db/unifiedDB';
 import { getActiveInsights } from '@/db/unifiedDB';
-import { setJournalUserId } from '@/db/journal';
 
 export default function HomePage() {
   const { currentUser } = useAuth();
@@ -23,8 +22,18 @@ export default function HomePage() {
   const [editingProject, setEditingProject] = useState(null);
 
   const loadData = async () => {
+    // Add check to ensure user is initialized
+    if (!currentUser) {
+      console.log('⚠️ Skipping data load - no user yet');
+      return;
+    }
+
+    console.log('📦 Loading home data for user:', currentUser.uid);
+    
     try {
       const allProjects = await unifiedDB.getAllProjects();
+      console.log('📦 Projects loaded:', allProjects.length);
+      
       const visibleProjects = allProjects.filter(p => 
         p.status === 'active' || p.status === 'planning'
       );
@@ -49,6 +58,24 @@ export default function HomePage() {
     }
   };
 
+  // Wait for currentUser to be set before loading data
+  useEffect(() => {
+    if (currentUser) {
+      console.log('✅ User available, loading data');
+      loadData();
+    } else {
+      console.log('⏳ Waiting for user...');
+      setLoading(true);
+    }
+
+    const handleTimeLogAdded = () => loadData();
+    window.addEventListener('timeLogAdded', handleTimeLogAdded);
+  
+    return () => {
+      window.removeEventListener('timeLogAdded', handleTimeLogAdded);
+    };
+  }, [currentUser]); // Add currentUser as dependency
+
   const handleProjectClick = (project) => {
     router.push(`/projects/${project.id}`);
   };
@@ -62,30 +89,6 @@ export default function HomePage() {
     loadData();
     handleCloseForm();
   };
-
-  // useEffect(() => {
-  //  if (currentUser) {
-  //    unifiedDB.setCurrentUser(currentUser.uid);
-  //    setJournalUserId(currentUser.uid);
-  //  } else {
-  //    unifiedDB.setCurrentUser(null);
-  //    setJournalUserId(null);
-  //  }
-  //}, [currentUser]);
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (currentUser) {
-      loadData();
-    }
-
-    const handleTimeLogAdded = () => loadData();
-    window.addEventListener('timeLogAdded', handleTimeLogAdded);
-  
-    return () => {
-      window.removeEventListener('timeLogAdded', handleTimeLogAdded);
-    };
-  }, [currentUser]);
 
   if (!currentUser) {
     return <AuthScreen />;
