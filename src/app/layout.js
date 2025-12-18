@@ -1,6 +1,7 @@
 import { Inter } from 'next/font/google';
-import '@/app/globals.css';
+import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
+import UserInitializer from '@/components/UserInitializer';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -8,7 +9,7 @@ export const metadata = {
   title: 'RetireWise',
   description: 'Your intelligent retirement portfolio advisor',
   manifest: '/manifest.json',
-   appleWebApp: {
+  appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
     title: 'RetireWise',
@@ -31,7 +32,9 @@ export default function RootLayout({ children }) {
       </head>
       <body className={inter.className}>
         <AuthProvider>
-          {children}
+          <UserInitializer>
+            {children}
+          </UserInitializer>
         </AuthProvider>
       </body>
     </html>

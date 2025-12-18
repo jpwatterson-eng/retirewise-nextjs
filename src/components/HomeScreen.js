@@ -1,6 +1,8 @@
 'use client';
 
 import { Lightbulb, FolderOpen } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+
 
 export default function HomeScreen({ 
   todayHours = 0, 
@@ -10,6 +12,8 @@ export default function HomeScreen({
   handleProjectClick,
   setShowProjectForm 
 }) {
+  const router = useRouter();
+  
   return (
     <div className="space-y-4">
       <div className="bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl p-6 text-white shadow-lg">
@@ -38,7 +42,7 @@ export default function HomeScreen({
               Latest Insights
             </h3>
             <button
-              onClick={() => setCurrentScreen('insights')}
+              onClick={() => router.push('insights')}
               className="text-blue-600 text-sm font-medium hover:underline"
             >
               View All

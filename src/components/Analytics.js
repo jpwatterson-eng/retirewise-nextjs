@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { TrendingUp, Clock, Target, Zap, Calendar, BarChart3, List } from 'lucide-react';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import * as unifiedDB from '@/db/unifiedDB';
+import { useRouter } from 'next/navigation';
 
 const Analytics = () => {
   const [loading, setLoading] = useState(true);
@@ -15,6 +16,8 @@ const Analytics = () => {
   const [projectData, setProjectData] = useState([]);
   const [activityData, setActivityData] = useState([]);
   const [perspectiveData, setPerspectiveData] = useState([]);
+
+  const router = useRouter();
 
     const prepareChartData = async (projects, stats) => {
     // Weekly trend data
@@ -352,7 +355,7 @@ const Analytics = () => {
       {/* Energy & Productivity Metrics */}
       {timeStats && (timeStats.averageEnergy > 0 || timeStats.averageProductivity > 0) && (
         <div className="bg-white rounded-xl p-6 shadow-sm">
-          <h2 className="text-lg font-bold text-gray-800 mb-4">How You're Feeling</h2>
+          <h2 className="text-lg font-bold text-gray-800 mb-4">How You Are Feeling</h2>
           <div className="grid grid-cols-3 gap-4">
             {timeStats.averageEnergy > 0 && (
               <div className="text-center">
@@ -414,7 +417,7 @@ const Analytics = () => {
           </div>
         </div>
         <button
-          onClick={() => window.dispatchEvent(new CustomEvent('navigateToTimeLogs'))}
+          onClick={() => router.push('/timelogs')}
           className="w-full px-6 py-3 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-semibold flex items-center justify-center gap-2"
         >
           <Clock className="w-5 h-5" />
