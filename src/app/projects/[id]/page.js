@@ -11,7 +11,8 @@ export default function ProjectDetailPage() {
   const params = useParams();
   const [showEditForm, setShowEditForm] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
-
+  const [refreshKey, setRefreshKey] = useState(0);
+  
   const handleClose = () => {
     router.back(); // Go back to previous page
   };
@@ -32,12 +33,14 @@ export default function ProjectDetailPage() {
 
   const handleProjectSaved = () => {
     handleCloseEditForm();
+    setRefreshKey(prev => prev + 1);
     // ProjectDetails will auto-refresh
   };
 
   return (
     <AppLayout>
       <ProjectDetails
+        key={refreshKey}
         projectId={params.id}
         onClose={handleClose}
         onEdit={handleEdit}

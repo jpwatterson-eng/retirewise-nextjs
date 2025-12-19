@@ -103,7 +103,7 @@ const ProjectsListView = ({ onProjectClick, onEditProject, onNewProject }) => {
           <Filter className="w-4 h-4" />
           Filter by Status
         </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex gap-2 overflow-x-auto pb-1">
           {[
             { value: 'all', label: 'All', count: statusCounts.all },
             { value: 'planning', label: 'Planning', count: statusCounts.planning },
