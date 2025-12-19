@@ -7,7 +7,6 @@ import { useRouter } from 'next/navigation';
 export default function HomeScreen({ 
   todayHours = 0, 
   topInsights = [], 
-  setCurrentScreen, 
   projects = [], 
   handleProjectClick,
   setShowProjectForm 
