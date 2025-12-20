@@ -1,19 +1,31 @@
 'use client';
 
-import { Home as HomeIcon, MessageSquare, BookOpen, BarChart3, Settings, Plus, FolderOpen, Lightbulb } from 'lucide-react';
+import React, { useState } from 'react';
+import { Home as HomeIcon, MessageSquare, BookOpen, BarChart3, Settings, Plus, FolderOpen, Lightbulb, Target } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import QuickTimeLog from './QuickTimeLog';
+import ProjectForm from './ProjectForm';
 
 export default function AppLayout({ children, showFAB = false }) {
   const pathname = usePathname();
   const router = useRouter();
 
+  //
+  //  { id: 'projects', path: '/projects', icon: FolderOpen,label: 'Projects' },
+  //  { id: 'insights', path: '/insights', icon: Lightbulb,label: 'Insights' },
+  // 
+
   const navItems = [
     { id: 'home', path: '/', icon: HomeIcon, label: 'Home' },
     { id: 'chat', path: '/chat', icon: MessageSquare, label: 'AI Advisor' },
     { id: 'journal', path: '/journal', icon: BookOpen, label: 'Journal' },
-    { id: 'stats', path: '/analytics', icon: BarChart3, label: 'Analytics' }
+    { id: 'stats', path: '/analytics', icon: BarChart3, label: 'Analytics' },
+
+    { id: 'portfolio', path: '/portfolio', icon: Target, label: 'Portfolio' }
   ];
+
+  const [showProjectForm, setShowProjectForm] = useState(false);
 
   return (
     <div className="flex flex-col h-screen max-w-md mx-auto bg-gray-50 relative">
@@ -59,13 +71,27 @@ export default function AppLayout({ children, showFAB = false }) {
       {pathname === '/' && <QuickTimeLog />}
 
       {/* Floating Action Button (only on home) */}
+      {showProjectForm && (
+        <ProjectForm
+          onClose={() => setShowProjectForm(false)}
+          onSaved={() => {
+          setShowProjectForm(false);
+        // Optionally refresh projects list if on projects page
+          if (pathname === '/projects') {
+            window.location.reload();
+          }
+        }}
+      />
+      )}
+
       {showFAB && pathname === '/' && (
-        <button
-          onClick={() => router.push('/projects/new')}
-          className="fixed bottom-20 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-all hover:scale-110 flex items-center justify-center z-40"
-        >
-          <Plus className="w-6 h-6" />
-        </button>
+      <button
+        onClick={() => setShowProjectForm(true)}
+        className="fixed bottom-20 right-4 md:bottom-6 md:right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-all z-50 flex items-center justify-center"
+        aria-label="New Project"
+      >
+        <Plus className="w-6 h-6" />
+      </button>
       )}
 
       {/* Bottom Navigation */}

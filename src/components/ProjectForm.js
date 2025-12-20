@@ -2,8 +2,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Plus } from 'lucide-react';
+import { X, Plus, Info } from 'lucide-react';
 import * as unifiedDB from '@/db/unifiedDB';
+import { PERSPECTIVES, getAllPerspectives } from '@/utils/perspectiveHelpers';
 
 const ProjectForm = ({ project, onClose, onSaved }) => {
   const isEdit = !!project;
@@ -18,12 +19,20 @@ const ProjectForm = ({ project, onClose, onSaved }) => {
     tags: [],
     color: '#3B82F6',
     icon: '',
-    targetHours: ''
+    targetHours: '',
+    perspective: 'builder',
+    perspectiveAlignment: 75,
+    // Perspective-specific metrics
+    builderMetrics: {},
+    contributorMetrics: {},
+    integratorMetrics: {},
+    experimenterMetrics: {}
   });
   
   const [goalInput, setGoalInput] = useState('');
   const [tagInput, setTagInput] = useState('');
   const [saving, setSaving] = useState(false);
+  const [showPerspectiveInfo, setShowPerspectiveInfo] = useState(false);
 
   useEffect(() => {
     if (project) {
@@ -37,7 +46,13 @@ const ProjectForm = ({ project, onClose, onSaved }) => {
         tags: project.tags || [],
         color: project.color || '#3B82F6',
         icon: project.icon || '',
-        targetHours: project.targetHours || ''
+        targetHours: project.targetHours || '',
+        perspective: project.perspective || 'builder',
+        perspectiveAlignment: project.perspectiveAlignment || 75,
+        builderMetrics: project.builderMetrics || {},
+        contributorMetrics: project.contributorMetrics || {},
+        integratorMetrics: project.integratorMetrics || {},
+        experimenterMetrics: project.experimenterMetrics || {}
       });
     }
   }, [project]);
@@ -130,6 +145,9 @@ const ProjectForm = ({ project, onClose, onSaved }) => {
     '#EF4444', '#EC4899', '#06B6D4', '#84CC16'
   ];
 
+  const perspectives = getAllPerspectives();
+  const selectedPerspective = PERSPECTIVES[formData.perspective];
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50 p-4">
       <div className="bg-white rounded-t-3xl sm:rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -163,10 +181,95 @@ const ProjectForm = ({ project, onClose, onSaved }) => {
             />
           </div>
 
+          {/* Perspective Selection - NEW */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-semibold text-gray-700">
+                Primary Perspective *
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowPerspectiveInfo(!showPerspectiveInfo)}
+                className="text-blue-600 hover:text-blue-700"
+              >
+                <Info className="w-4 h-4" />
+              </button>
+            </div>
+
+            {showPerspectiveInfo && (
+              <div className="mb-3 p-3 bg-blue-50 rounded-lg text-sm text-blue-900">
+                <p className="font-semibold mb-2">What are perspectives?</p>
+                <p>Perspectives help you maintain a balanced portfolio of activities:</p>
+                <ul className="mt-2 space-y-1 ml-4">
+                  <li>🔨 <strong>Builder:</strong> Creating tangible value</li>
+                  <li>🤝 <strong>Contributor:</strong> Giving back to others</li>
+                  <li>🔄 <strong>Integrator:</strong> Connecting different ideas</li>
+                  <li>🧪 <strong>Experimenter:</strong> Learning and exploring</li>
+                </ul>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {perspectives.map((perspective) => (
+                <button
+                  key={perspective.id}
+                  type="button"
+                  onClick={() => handleChange('perspective', perspective.id)}
+                  className={`p-4 border-2 rounded-xl text-left transition-all ${
+                    formData.perspective === perspective.id
+                      ? 'border-2 shadow-md'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                  style={{
+                    borderColor: formData.perspective === perspective.id ? perspective.color : undefined,
+                    backgroundColor: formData.perspective === perspective.id ? `${perspective.color}10` : undefined
+                  }}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-2xl">{perspective.icon}</span>
+                    <p className="font-semibold text-gray-800">{perspective.label}</p>
+                  </div>
+                  <p className="text-xs text-gray-600">{perspective.description}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Alignment Strength - NEW */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Alignment Strength
+            </label>
+            <div className="flex items-center gap-4">
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={formData.perspectiveAlignment}
+                onChange={(e) => handleChange('perspectiveAlignment', parseInt(e.target.value))}
+                className="flex-1"
+                style={{
+                  accentColor: selectedPerspective?.color
+                }}
+              />
+              <div className="flex items-center gap-2">
+                <span className="text-2xl font-bold" style={{ color: selectedPerspective?.color }}>
+                  {formData.perspectiveAlignment}%
+                </span>
+              </div>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              How well does this project align with the {selectedPerspective?.label} perspective?
+            </p>
+          </div>
+
+          {/* Visual Separator */}
+          <div className="border-t border-gray-200 my-6"></div>
+
           {/* Type */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Project Type *
+              Project Type
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {projectTypes.map((type) => (

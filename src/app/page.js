@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthScreen from '@/components/Auth/AuthScreen';
@@ -21,13 +21,28 @@ export default function HomePage() {
   const [showProjectForm, setShowProjectForm] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
 
+  useEffect(() => {
+  // Subscribe to real-time project updates
+  const unsubscribe = unifiedDB.subscribeToProjects((updatedProjects) => {
+    console.log('Projects updated in real-time:', updatedProjects.length);
+    setProjects(updatedProjects);
+    setLoading(false);
+  });
+
+  // Cleanup subscription on unmount
+  return () => {
+    if (unsubscribe) unsubscribe();
+  };
+  }, []);
+
+
   const loadData = async () => {
     // Add check to ensure user is initialized
     if (!currentUser) {
       console.log('⚠️ Skipping data load - no user yet');
       return;
     }
-
+  
     console.log('📦 Loading home data for user:', currentUser.uid);
     
     try {

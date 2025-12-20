@@ -5,12 +5,13 @@ import Dexie from 'dexie';
 const db = new Dexie('RetireWiseDB');
 
 // Define schema version 1
-db.version(2).stores({
+db.version(3).stores({
   projects: 'id, status, type, lastWorkedAt',
   timeLogs: 'id, projectId, date, [projectId+date]',
   journalEntries: 'id, date, projectId, entryType, favorite',
   conversations: 'id, startedAt, lastMessageAt, conversationType, archived',
   insights: 'id, type, priority, dismissed, generatedAt, [dismissed+validUntil]',
+  portfolios: '++id',
   perspectiveScores: 'id, date',
   settings: 'id',
   embeddingsCache: 'id, sourceType, sourceId, lastUsedAt'

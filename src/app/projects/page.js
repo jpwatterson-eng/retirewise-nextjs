@@ -1,15 +1,30 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import * as unifiedDB from '@/db/unifiedDB';
 import { useRouter } from 'next/navigation';
 import AppLayout from '@/components/AppLayout';
 import ProjectsListView from '@/components/ProjectsListView';
 import ProjectForm from '@/components/ProjectForm';
 
 export default function ProjectsPage() {
+    const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
   const [showProjectForm, setShowProjectForm] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
+
+    useEffect(() => {
+    // Real-time subscription
+    const unsubscribe = unifiedDB.subscribeToProjects((updatedProjects) => {
+      setProjects(updatedProjects);
+      setLoading(false);
+    });
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, []);
 
   const handleProjectClick = (project) => {
     router.push(`/projects/${project.id}`);

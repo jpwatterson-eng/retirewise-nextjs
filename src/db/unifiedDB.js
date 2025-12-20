@@ -425,6 +425,106 @@ export const generateInsights = async () => {
   return await dexieInsights.generateInsights();
 };
 
+// ==================== PORTFOLIO ====================
+
+export const getPortfolio = async () => {
+  if (currentUserId) {
+    return await firestoreDB.getPortfolio(currentUserId);
+  }
+  
+  // For local Dexie, store in a simple structure
+  const db = (await import('./database')).default;
+  const portfolios = await db.portfolios?.toArray() || [];
+  return portfolios[0] || null;
+};
+
+export const updatePortfolio = async (portfolioData) => {
+  if (currentUserId) {
+    await firestoreDB.updatePortfolio(currentUserId, portfolioData);
+    return;
+  }
+  
+  const db = (await import('./database')).default;
+  await db.portfolios?.clear();
+  await db.portfolios?.add({
+    id: 'portfolio_1',
+    ...portfolioData
+  });
+};
+
+export const calculatePortfolioBalance = async () => {
+  if (currentUserId) {
+    return await firestoreDB.calculatePortfolioBalance(currentUserId);
+  }
+  
+  // For Dexie, calculate locally
+  const projects = await getAllProjects();
+  const timeLogs = await getAllTimeLogs();
+  
+  const perspectiveHours = {
+    builder: 0,
+    contributor: 0,
+    integrator: 0,
+    experimenter: 0
+  };
+  
+  const projectPerspectives = {};
+  projects.forEach(p => {
+    if (p.perspective) {
+      projectPerspectives[p.id] = p.perspective;
+    }
+  });
+  
+  timeLogs.forEach(log => {
+    const perspective = projectPerspectives[log.projectId];
+    if (perspective && perspectiveHours[perspective] !== undefined) {
+      perspectiveHours[perspective] += log.duration;
+    }
+  });
+  
+  const totalHours = Object.values(perspectiveHours).reduce((sum, h) => sum + h, 0);
+  
+  const actualBalance = {
+    builder: totalHours > 0 ? (perspectiveHours.builder / totalHours) * 100 : 0,
+    contributor: totalHours > 0 ? (perspectiveHours.contributor / totalHours) * 100 : 0,
+    integrator: totalHours > 0 ? (perspectiveHours.integrator / totalHours) * 100 : 0,
+    experimenter: totalHours > 0 ? (perspectiveHours.experimenter / totalHours) * 100 : 0
+  };
+  
+  return {
+    actualBalance,
+    totalHours,
+    perspectiveHours,
+    lastCalculated: new Date().toISOString()
+  };
+};
+
+export const getProjectsByPerspective = async (perspective) => {
+  const projects = await getAllProjects();
+  return projects.filter(p => p.perspective === perspective);
+};
+
+export const getPerspectiveStats = async () => {
+  const projects = await getAllProjects();
+  const balance = await calculatePortfolioBalance();
+  
+  const stats = {
+    builder: { count: 0, hours: balance.perspectiveHours.builder },
+    contributor: { count: 0, hours: balance.perspectiveHours.contributor },
+    integrator: { count: 0, hours: balance.perspectiveHours.integrator },
+    experimenter: { count: 0, hours: balance.perspectiveHours.experimenter }
+  };
+  
+  projects.forEach(p => {
+    if (p.perspective && stats[p.perspective]) {
+      stats[p.perspective].count++;
+    }
+  });
+  
+  return stats;
+};
+
+
 export default {
   setCurrentUser,
   
@@ -460,5 +560,12 @@ export default {
   dismissInsight,
   markInsightActedOn,
   provideFeedback,
-  generateInsights
+  generateInsights,
+
+  // Portfolio
+  getPortfolio,
+  updatePortfolio,
+  calculatePortfolioBalance,
+  getProjectsByPerspective,
+  getPerspectiveStats  
 };

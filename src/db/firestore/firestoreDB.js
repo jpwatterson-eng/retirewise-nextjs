@@ -316,6 +316,75 @@ export const updateUserProfile = async (userId, updates) => {
   console.log('✅ User profile updated in Firestore');
 };
 
+// ==================== PORTFOLIO ====================
+
+export const getPortfolio = async (userId) => {
+  const ref = doc(db, `users/${userId}`);
+  const snapshot = await getDoc(ref);
+  
+  if (!snapshot.exists()) return null;
+  
+  const data = snapshot.data();
+  return data.portfolio || null;
+};
+
+export const updatePortfolio = async (userId, portfolioData) => {
+  const ref = doc(db, `users/${userId}`);
+  await setDoc(ref, {
+    portfolio: portfolioData,
+    updatedAt: serverTimestamp()
+  }, { merge: true }); // ← This is the fix
+  
+  console.log('✅ Portfolio updated in Firestore');
+};
+
+export const calculatePortfolioBalance = async (userId) => {
+  // Get all projects and time logs
+  const projects = await getProjects(userId);
+  const timeLogs = await getTimeLogs(userId);
+  
+  // Calculate time per perspective
+  const perspectiveHours = {
+    builder: 0,
+    contributor: 0,
+    integrator: 0,
+    experimenter: 0
+  };
+  
+  // Map project IDs to perspectives
+  const projectPerspectives = {};
+  projects.forEach(p => {
+    if (p.perspective) {
+      projectPerspectives[p.id] = p.perspective;
+    }
+  });
+  
+  // Sum hours by perspective
+  timeLogs.forEach(log => {
+    const perspective = projectPerspectives[log.projectId];
+    if (perspective && perspectiveHours[perspective] !== undefined) {
+      perspectiveHours[perspective] += log.duration;
+    }
+  });
+  
+  // Calculate percentages
+  const totalHours = Object.values(perspectiveHours).reduce((sum, h) => sum + h, 0);
+  
+  const actualBalance = {
+    builder: totalHours > 0 ? (perspectiveHours.builder / totalHours) * 100 : 0,
+    contributor: totalHours > 0 ? (perspectiveHours.contributor / totalHours) * 100 : 0,
+    integrator: totalHours > 0 ? (perspectiveHours.integrator / totalHours) * 100 : 0,
+    experimenter: totalHours > 0 ? (perspectiveHours.experimenter / totalHours) * 100 : 0
+  };
+  
+  return {
+    actualBalance,
+    totalHours,
+    perspectiveHours,
+    lastCalculated: new Date().toISOString()
+  };
+};
+
 export default {
   // Projects
   createProject,
@@ -351,5 +420,10 @@ export default {
   // User Profile
   createUserProfile,
   getUserProfile,
-  updateUserProfile
+  updateUserProfile,
+
+  // Portfolio
+  getPortfolio,
+  updatePortfolio,
+  calculatePortfolioBalance  
 };
