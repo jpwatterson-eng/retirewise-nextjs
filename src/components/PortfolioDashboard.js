@@ -114,7 +114,8 @@ const PortfolioDashboard = () => {
       </div>
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      {/* <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6"> */}
+      <div className="grid grid-cols-1 gap-2 mb-6">
         <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
           <div className="flex items-center gap-3">
             <div className="bg-blue-100 rounded-lg p-3">
@@ -183,7 +184,7 @@ const PortfolioDashboard = () => {
       )}
 
       {/* Balance Visualization */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-1 gap-6 mb-6">
         <BalanceChart balance={balance} />
         <BalanceComparison 
           actualBalance={balance.actualBalance} 
@@ -194,7 +195,7 @@ const PortfolioDashboard = () => {
       {/* Perspective Cards */}
       <div className="mb-6">
         <h2 className="text-xl font-bold text-gray-800 mb-4">Perspectives</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-1 gap-2">
           {Object.values(PERSPECTIVES).map(perspective => (
             <PerspectiveCard
               key={perspective.id}

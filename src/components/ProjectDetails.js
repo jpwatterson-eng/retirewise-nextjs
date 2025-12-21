@@ -113,99 +113,103 @@ useEffect(() => {
         </button>
       </div>
 
-      {/* Project Header Card */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
-        <div className="flex items-start gap-4">
-          {project.icon && (
-            <div className="text-4xl">{project.icon}</div>
-          )}
-          <div className="flex-1">
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">{project.name}</h2>
-            
-            {/* Perspective Badge - NEW */}
-            {perspective && (
-              <div className="flex items-center gap-2 mb-3">
-                <div 
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold"
-                  style={{ 
-                    backgroundColor: `${perspectiveColor}20`,
-                    color: perspectiveColor,
-                    border: `2px solid ${perspectiveColor}`
-                  }}
-                >
-                  <span className="text-lg">{perspective.icon}</span>
-                  <span>{perspective.label}</span>
-                  <span className="opacity-75">•</span>
-                  <span>{project.perspectiveAlignment}% aligned</span>
-                </div>
-                
-                <div className={`px-3 py-1 rounded-full text-xs font-medium ${
-                  project.status === 'active' ? 'bg-green-100 text-green-700' :
-                  project.status === 'planning' ? 'bg-blue-100 text-blue-700' :
-                  project.status === 'paused' ? 'bg-yellow-100 text-yellow-700' :
-                  project.status === 'complete' ? 'bg-purple-100 text-purple-700' :
-                  'bg-gray-100 text-gray-700'
-                }`}>
-                  {project.status}
-                </div>
-              </div>
-            )}
+{/* Project Header Card */}
+<div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
+  {/* Line 1: Icon + Name */}
+  <div className="flex items-center gap-3 mb-3">
+    {project.icon && (
+      <span className="text-3xl flex-shrink-0">{project.icon}</span>
+    )}
+    <h2 className="text-2xl font-bold text-gray-800">{project.name}</h2>
+  </div>
 
-            {/* Perspective Description - NEW */}
-            {perspective && (
-              <div className="bg-gray-50 rounded-lg p-3 mb-3">
-                <p className="text-sm text-gray-700">
-                  <span className="font-semibold">{perspective.label}:</span> {perspective.description}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Examples: {perspective.examples}
-                </p>
-              </div>
-            )}
-
-            {project.description && (
-              <p className="text-gray-600 mb-3">{project.description}</p>
-            )}
-            
-            {project.motivation && (
-              <div className="bg-blue-50 rounded-lg p-3 mb-3">
-                <p className="text-sm text-blue-900">
-                  <span className="font-semibold">Why:</span> {project.motivation}
-                </p>
-              </div>
-            )}
-
-            {/* Tags */}
-            {project.tags && project.tags.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-3">
-                {project.tags.map((tag, idx) => (
-                  <span
-                    key={idx}
-                    className="px-3 py-1 bg-gray-100 text-gray-700 text-xs rounded-full"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
+  {/* Content Container - Always Left Aligned (no conditional margin) */}
+  <div>
+    {/* Perspective Badge */}
+    {perspective && (
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        <div 
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold"
+          style={{ 
+            backgroundColor: `${perspectiveColor}20`,
+            color: perspectiveColor,
+            border: `2px solid ${perspectiveColor}`
+          }}
+        >
+          <span className="text-lg">{perspective.icon}</span>
+          <span>{perspective.label}</span>
+          <span className="opacity-75">•</span>
+          <span>{project.perspectiveAlignment}% aligned</span>
         </div>
-
-        {/* Goals */}
-        {project.goals && project.goals.length > 0 && (
-          <div className="mt-4 pt-4 border-t border-gray-200">
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">Goals</h3>
-            <ul className="space-y-2">
-              {project.goals.map((goal, idx) => (
-                <li key={idx} className="flex items-start gap-2 text-sm text-gray-600">
-                  <Target className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                  <span>{goal}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+        
+        <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+          project.status === 'active' ? 'bg-green-100 text-green-700' :
+          project.status === 'planning' ? 'bg-blue-100 text-blue-700' :
+          project.status === 'paused' ? 'bg-yellow-100 text-yellow-700' :
+          project.status === 'complete' ? 'bg-purple-100 text-purple-700' :
+          'bg-gray-100 text-gray-700'
+        }`}>
+          {project.status}
+        </div>
       </div>
+    )}
+
+    {/* Perspective Description */}
+    {perspective && (
+      <div className="bg-gray-50 rounded-lg p-3 mb-3">
+        <p className="text-sm text-gray-700">
+          <span className="font-semibold">{perspective.label}:</span> {perspective.description}
+        </p>
+        <p className="text-xs text-gray-500 mt-1">
+          Examples: {perspective.examples}
+        </p>
+      </div>
+    )}
+
+    {/* Description */}
+    {project.description && (
+      <p className="text-gray-600 mb-3">{project.description}</p>
+    )}
+    
+    {/* Motivation */}
+    {project.motivation && (
+      <div className="bg-blue-50 rounded-lg p-3 mb-3">
+        <p className="text-sm text-blue-900">
+          <span className="font-semibold">Why:</span> {project.motivation}
+        </p>
+      </div>
+    )}
+
+    {/* Tags */}
+    {project.tags && project.tags.length > 0 && (
+      <div className="flex flex-wrap gap-2">
+        {project.tags.map((tag, idx) => (
+          <span
+            key={idx}
+            className="px-3 py-1 bg-gray-100 text-gray-700 text-xs rounded-full"
+          >
+            {tag}
+          </span>
+        ))}
+      </div>
+    )}
+  </div>
+
+  {/* Goals - Full Width */}
+  {project.goals && project.goals.length > 0 && (
+    <div className="mt-4 pt-4 border-t border-gray-200">
+      <h3 className="text-sm font-semibold text-gray-700 mb-2">Goals</h3>
+      <ul className="space-y-2">
+        {project.goals.map((goal, idx) => (
+          <li key={idx} className="flex items-start gap-2 text-sm text-gray-600">
+            <Target className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+            <span>{goal}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )}
+</div>
 
       {/* Stats Cards - BETTER RESPONSIVE FIX */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
