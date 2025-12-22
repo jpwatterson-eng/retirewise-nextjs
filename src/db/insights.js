@@ -30,7 +30,6 @@ export const createInsight = async (insightData) => {
 };
 
 // Get all active insights (not dismissed, still valid)
-// Get all active insights (not dismissed, still valid)
 export const getActiveInsights = async () => {
   try {
     const now = new Date().toISOString();
@@ -144,9 +143,14 @@ export const clearOldInsights = async (daysOld = 30) => {
 
 // Generate insights based on current data
 export const generateInsights = async () => {
+  
+  console.log('🔍 generateInsights() CALLED');
+
   const insights = [];
   
   // Get data for analysis
+  console.log('📊 Fetching data...');
+
   const projects = await db.projects.toArray();
   const timeLogs = await db.timeLogs.toArray();
   const journalEntries = await db.journalEntries.toArray();
@@ -154,6 +158,210 @@ export const generateInsights = async () => {
   const now = new Date();
   const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+  const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  
+  console.log(`📊 Data: ${projects.length} projects, ${timeLogs.length} logs, ${journalEntries.length} journals`);
+  
+  // ==================== PERSPECTIVE INSIGHTS ====================
+  
+  // Calculate perspective distribution
+  const perspectiveHours = {
+    builder: 0,
+    contributor: 0,
+    integrator: 0,
+    experimenter: 0
+  };
+  
+  const projectPerspectives = {};
+  projects.forEach(p => {
+    if (p.perspective) {
+      projectPerspectives[p.id] = p.perspective;
+    }
+  });
+  
+  timeLogs.forEach(log => {
+    const perspective = projectPerspectives[log.projectId];
+    if (perspective && perspectiveHours[perspective] !== undefined) {
+      perspectiveHours[perspective] += log.duration;
+    }
+  });
+  
+  const totalHours = Object.values(perspectiveHours).reduce((sum, h) => sum + h, 0);
+  
+  console.log('⚖️ Perspective Hours:', perspectiveHours);
+  console.log('⚖️ Total Hours:', totalHours);
+
+  const perspectiveBalance = {
+    builder: totalHours > 0 ? (perspectiveHours.builder / totalHours) * 100 : 0,
+    contributor: totalHours > 0 ? (perspectiveHours.contributor / totalHours) * 100 : 0,
+    integrator: totalHours > 0 ? (perspectiveHours.integrator / totalHours) * 100 : 0,
+    experimenter: totalHours > 0 ? (perspectiveHours.experimenter / totalHours) * 100 : 0
+  };
+  
+  console.log('⚖️ Balance:', perspectiveBalance);
+
+  // Check for overconcentration in one perspective
+  console.log('🔍 Checking overconcentration...');
+
+  Object.entries(perspectiveBalance).forEach(([perspective, percentage]) => {
+    console.log(`  ${perspective}: ${percentage.toFixed(1)}% - Should trigger? ${percentage > 70 && totalHours > 10}`);
+    if (percentage > 70 && totalHours > 10) {
+      console.log(`  ✅ TRIGGERING overconcentration insight for ${perspective}`);
+    // ... rest of insight code
+      const perspectiveNames = {
+        builder: 'Builder',
+        contributor: 'Contributor',
+        integrator: 'Integrator',
+        experimenter: 'Experimenter'
+      };
+      
+      const perspectiveIcons = {
+        builder: '🔨',
+        contributor: '🤝',
+        integrator: '🔄',
+        experimenter: '🧪'
+      };
+      
+      const suggestions = {
+        builder: 'Consider adding Experimenter activities to explore new interests, or Contributor projects to give back.',
+        contributor: 'Balance with Builder projects to create tangible outputs, or Experimenter activities to learn new skills.',
+        integrator: 'Add Builder projects for concrete outcomes, or Experimenter activities for fresh perspectives.',
+        experimenter: 'Consider Builder projects to apply your learnings, or Contributor work to share your knowledge.'
+      };
+      
+      insights.push({
+        type: 'balance',
+        title: `${perspectiveIcons[perspective]} Portfolio Heavily Weighted Toward ${perspectiveNames[perspective]}`,
+        description: `You're spending ${percentage.toFixed(0)}% of your time on ${perspectiveNames[perspective]} projects. ${suggestions[perspective]}`,
+        confidence: 0.85,
+        actionable: true,
+        suggestedActions: [
+          'Review your portfolio balance on the Portfolio page',
+          'Start a project in an underrepresented perspective',
+          'Set target percentages for each perspective'
+        ],
+        priority: 'medium',
+        basedOn: {
+          perspective,
+          percentage: percentage.toFixed(1),
+          totalHours
+        }
+      });
+    }
+  });
+  
+  // Check for missing perspectives
+  const missingPerspectives = Object.entries(perspectiveBalance)
+    .filter(([_, percentage]) => percentage === 0 && totalHours > 5)
+    .map(([perspective, _]) => perspective);
+  
+  if (missingPerspectives.length > 0) {
+    const perspectiveNames = {
+      builder: 'Builder',
+      contributor: 'Contributor', 
+      integrator: 'Integrator',
+      experimenter: 'Experimenter'
+    };
+    
+    const perspectiveDescriptions = {
+      builder: 'create something tangible like a product, book, or business',
+      contributor: 'give back through teaching, mentoring, or volunteering',
+      integrator: 'connect different interests and explore interdisciplinary ideas',
+      experimenter: 'learn new skills and try new things without pressure to complete'
+    };
+    
+    const names = missingPerspectives.map(p => perspectiveNames[p]).join(' and ');
+    const descriptions = missingPerspectives.map(p => perspectiveDescriptions[p]).join(', or ');
+    
+    insights.push({
+      type: 'suggestion',
+      title: `Missing Perspective${missingPerspectives.length > 1 ? 's' : ''}: ${names}`,
+      description: `You haven't logged any ${names} activities yet. Consider starting a project to ${descriptions}.`,
+      confidence: 0.7,
+      actionable: true,
+      suggestedActions: [
+        `Create a ${perspectiveNames[missingPerspectives[0]]} project`,
+        'Explore the Portfolio page for ideas',
+        'Review the perspective descriptions for inspiration'
+      ],
+      priority: 'low',
+      basedOn: {
+        missingPerspectives,
+        totalHours
+      }
+    });
+  }
+  
+  // Check for inactive perspectives (no activity in 2+ weeks)
+  const recentLogs = timeLogs.filter(log => new Date(log.date) > twoWeeksAgo);
+  const recentPerspectives = new Set();
+  
+  recentLogs.forEach(log => {
+    const perspective = projectPerspectives[log.projectId];
+    if (perspective) {
+      recentPerspectives.add(perspective);
+    }
+  });
+  
+  const inactivePerspectives = ['builder', 'contributor', 'integrator', 'experimenter']
+    .filter(p => perspectiveHours[p] > 0 && !recentPerspectives.has(p));
+  
+  if (inactivePerspectives.length > 0 && totalHours > 10) {
+    const perspectiveNames = {
+      builder: 'Builder',
+      contributor: 'Contributor',
+      integrator: 'Integrator',
+      experimenter: 'Experimenter'
+    };
+    
+    const perspectiveIcons = {
+      builder: '🔨',
+      contributor: '🤝',
+      integrator: '🔄',
+      experimenter: '🧪'
+    };
+    
+    const names = inactivePerspectives.map(p => `${perspectiveIcons[p]} ${perspectiveNames[p]}`).join(', ');
+    
+    insights.push({
+      type: 'pattern',
+      title: 'Perspective Neglect',
+      description: `You haven't worked on ${names} project${inactivePerspectives.length > 1 ? 's' : ''} in over 2 weeks. Consider rebalancing your portfolio.`,
+      confidence: 0.75,
+      actionable: true,
+      suggestedActions: [
+        'Review your portfolio balance',
+        'Schedule time for neglected perspectives',
+        'Consider if you need to pause or archive projects'
+      ],
+      priority: 'medium',
+      basedOn: {
+        inactivePerspectives,
+        daysSinceActivity: 14
+      }
+    });
+  }
+  
+  // Celebrate balanced portfolio
+  const balancedPerspectives = Object.values(perspectiveBalance).filter(p => p >= 15 && p <= 35);
+  if (balancedPerspectives.length >= 3 && totalHours > 20) {
+    insights.push({
+      type: 'achievement',
+      title: '🎯 Well-Balanced Portfolio!',
+      description: `Excellent work! You're maintaining good balance across multiple perspectives. This diversity enriches your retirement experience.`,
+      confidence: 1.0,
+      actionable: false,
+      suggestedActions: [],
+      priority: 'medium',
+      basedOn: {
+        balancedCount: balancedPerspectives.length,
+        balance: perspectiveBalance
+      },
+      validUntil: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString()
+    });
+  }
+  
+  // ==================== EXISTING INSIGHTS ====================
   
   // Check for dormant projects
   const dormantProjects = projects.filter(p => {
@@ -247,7 +455,7 @@ export const generateInsights = async () => {
       basedOn: {
         milestones: milestonesThisWeek.length
       },
-      validUntil: new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString() // Valid for 3 days
+      validUntil: new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString()
     });
   }
   
@@ -256,8 +464,11 @@ export const generateInsights = async () => {
     await createInsight(insightData);
   }
   
+  console.log(`✅ Generated ${insights.length} insights (${insights.filter(i => i.type === 'balance' || i.type === 'suggestion' && i.basedOn.missingPerspectives).length} perspective-aware)`);
+  
   return insights;
 };
+
 
 export default {
   createInsight,
