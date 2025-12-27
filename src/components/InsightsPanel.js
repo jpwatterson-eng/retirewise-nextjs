@@ -2,7 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { Lightbulb, X, CheckCircle, ThumbsUp, ThumbsDown, AlertTriangle, TrendingUp, Star, Target } from 'lucide-react';
-import { getActiveInsights, dismissInsight, markInsightActedOn, provideFeedback, generateInsights } from '../db/unifiedDB';
+import { getActiveInsights, dismissInsight, markInsightActedOn, provideFeedback } from '@/db/unifiedDB';
+import * as unifiedDB from '@/db/unifiedDB';
+
 
 const InsightsPanel = () => {
   const [insights, setInsights] = useState([]);
@@ -31,7 +33,7 @@ const InsightsPanel = () => {
   const handleGenerateInsights = async () => {
     setGenerating(true);
     try {
-      const newInsights = await generateInsights();
+      const newInsights = await unifiedDB.generateInsights();
       console.log(`✅ Generated ${newInsights.length} new insights`);
       await loadInsights();
     } catch (error) {

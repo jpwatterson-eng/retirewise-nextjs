@@ -1,6 +1,6 @@
 // src/services/aiService.js
 import db from '@/db/database';
-import { getAllProjects } from '@/db/projects';
+import { getAllProjects } from '@/db/unifiedDB';
 import { subDays, format } from 'date-fns';
 
 // Get API key from environment variable (production) or settings (development)

@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Search, Star, Calendar, Tag, Trash2, Edit2, Eye } from 'lucide-react';
 import * as unifiedDB from '../db/unifiedDB';
 import { getJournalStats } from '@/db/journal';
-import { getAllProjects } from '@/db/projects';
+import { getAllProjects } from '@/db/unifiedDB';
 import { format } from 'date-fns';
 import JournalEntryForm from '@/components/JournalEntryForm';
 

@@ -206,20 +206,30 @@ export const deleteJournalEntry = async (userId, entryId) => {
 
 // ==================== INSIGHTS ====================
 
+
 export const createInsight = async (userId, insightData) => {
   const ref = getUserCollection(userId, 'insights');
   const docRef = await addDoc(ref, {
     ...insightData,
-    createdAt: serverTimestamp()
+    dismissed: false,
+    dismissedAt: null,
+    dismissReason: null,
+    actedOn: false,
+    actedOnAt: null,
+    userFeedback: null,
+    createdAt: serverTimestamp(),
+    lastShownAt: serverTimestamp()
   });
   
   console.log('✅ Insight created in Firestore:', docRef.id);
   return docRef.id;
 };
 
+
 export const getInsights = async (userId) => {
   const ref = getUserCollection(userId, 'insights');
-  const q = query(ref, orderBy('generatedAt', 'desc'));
+  //   const q = query(ref, orderBy('generatedAt', 'desc'));
+  const q = query(ref, orderBy('createdAt', 'desc'));
   const snapshot = await getDocs(q);
   
   return snapshot.docs.map(doc => ({

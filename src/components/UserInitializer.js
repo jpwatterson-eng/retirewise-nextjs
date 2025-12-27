@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import * as unifiedDB from '@/db/unifiedDB';
-import { setJournalUserId } from '@/db/journal';
 
 export default function UserInitializer({ children }) {
   const { currentUser } = useAuth();
@@ -11,13 +10,13 @@ export default function UserInitializer({ children }) {
 
   useEffect(() => {
     console.log('🔐 Initializing user:', currentUser?.uid);
-    if (currentUser) {
+    if (currentUser?.uid) {
+      console.log('🔐 User SET:', currentUser.uid);
       unifiedDB.setCurrentUser(currentUser.uid);
-      setJournalUserId(currentUser.uid);
       setDbInitialized(true);
     } else {
+      console.log('⚠️ No user - auth required');
       unifiedDB.setCurrentUser(null);
-      setJournalUserId(null);
       setDbInitialized(true);
     }
   }, [currentUser]);
