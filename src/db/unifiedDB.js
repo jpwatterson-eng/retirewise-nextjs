@@ -483,6 +483,37 @@ export const generateInsights = async () => {
   return savedInsights;
 };
 
+// ==================== CONVERSATIONS (AI Chat) ====================
+
+export const createConversation = async (conversationData) => {
+  const userId = requireAuth();
+  const id = await firestoreDB.createConversation(userId, conversationData);
+  return id;
+};
+
+export const getConversations = async () => {
+  const userId = requireAuth();
+  return await firestoreDB.getConversations(userId);
+};
+
+export const getConversation = async (conversationId) => {
+  const userId = requireAuth();
+  const conversations = await firestoreDB.getConversations(userId);
+  return conversations.find(c => c.id === conversationId) || null;
+};
+
+export const updateConversation = async (conversationId, updates) => {
+  const userId = requireAuth();
+  await firestoreDB.updateConversation(userId, conversationId, updates);
+};
+
+export const deleteConversation = async (conversationId) => {
+  const userId = requireAuth();
+  // Note: firestoreDB might not have deleteConversation, 
+  // so we'll need to add that too
+  await firestoreDB.deleteConversation(userId, conversationId);
+};
+
 // ==================== PORTFOLIO ====================
 
 export const getPortfolio = async () => {
@@ -525,6 +556,25 @@ export const getPerspectiveStats = async () => {
   return stats;
 };
 
+// ==================== USER PROFILE ====================
+// Add this section AFTER Portfolio functions and BEFORE the default export
+
+export const getUserProfile = async () => {
+  const userId = requireAuth();
+  return await firestoreDB.getUserProfile(userId);
+};
+
+export const updateUserProfile = async (updates) => {
+  const userId = requireAuth();
+  await firestoreDB.updateUserProfile(userId, updates);
+};
+
+export const createUserProfile = async (profileData) => {
+  const userId = requireAuth();
+  await firestoreDB.createUserProfile(userId, profileData);
+};
+
+
 export default {
   setCurrentUser,
   
@@ -562,10 +612,22 @@ export default {
   provideFeedback,
   generateInsights,
 
+    // Conversations (ADD THESE LINES) ← NEW
+  createConversation,
+  getConversations,
+  getConversation,
+  updateConversation,
+  deleteConversation,
+
   // Portfolio
   getPortfolio,
   updatePortfolio,
   calculatePortfolioBalance,
   getProjectsByPerspective,
-  getPerspectiveStats  
+  getPerspectiveStats,
+  
+    // User Profile
+  getUserProfile,
+  updateUserProfile,
+  createUserProfile
 };

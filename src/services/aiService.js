@@ -1,6 +1,6 @@
 // src/services/aiService.js
-import db from '@/db/database';
-import { getAllProjects } from '@/db/unifiedDB';
+
+import { getAllProjects, getAllTimeLogs, getAllJournalEntries } from '@/db/unifiedDB';
 import { subDays, format } from 'date-fns';
 
 // Get API key from environment variable (production) or settings (development)
@@ -96,13 +96,15 @@ const executeToolFunction = async (toolName, toolInput) => {
 };
 
 // Tool implementations
+
 const getRecentActivity = async (days) => {
   const sinceDate = subDays(new Date(), days);
   
-  const timeLogs = await db.timeLogs
-    .where('date')
-    .above(sinceDate.toISOString())
-    .toArray();
+  // Use unifiedDB instead of Dexie
+  const allTimeLogs = await getAllTimeLogs();
+  const timeLogs = allTimeLogs.filter(log => 
+    new Date(log.date) > sinceDate
+  );
   
   const projects = await getAllProjects();
   
@@ -137,7 +139,8 @@ const getRecentActivity = async (days) => {
 };
 
 const searchJournal = async (query, limit) => {
-  const allEntries = await db.journalEntries.toArray();
+  // Use unifiedDB instead of Dexie
+  const allEntries = await getAllJournalEntries();
   
   // If no specific query, return most recent entries
   if (!query || query.trim() === '') {
@@ -236,23 +239,25 @@ const searchJournal = async (query, limit) => {
 };
 
 const analyzePatterns = async () => {
+  // Use unifiedDB instead of Dexie
   const projects = await getAllProjects();
-  const allTimeLogs = await db.timeLogs.toArray();
+  const allTimeLogs = await getAllTimeLogs();
   
-  // Calculate time distribution by project type
-  const typeDistribution = {};
+  // Calculate time distribution by perspective (not type)
+  const perspectiveDistribution = {};
   projects.forEach(project => {
-    if (!typeDistribution[project.type]) {
-      typeDistribution[project.type] = 0;
+    const perspective = project.perspective || 'unknown';
+    if (!perspectiveDistribution[perspective]) {
+      perspectiveDistribution[perspective] = 0;
     }
-    typeDistribution[project.type] += project.totalHoursLogged;
+    perspectiveDistribution[perspective] += project.totalHoursLogged || 0;
   });
   
-  const totalHours = Object.values(typeDistribution).reduce((sum, h) => sum + h, 0);
+  const totalHours = Object.values(perspectiveDistribution).reduce((sum, h) => sum + h, 0);
   
   // Find most engaged project (by hours and recency)
   const activeProjects = projects
-    .filter(p => p.totalHoursLogged > 0)
+    .filter(p => (p.totalHoursLogged || 0) > 0)
     .sort((a, b) => {
       const aRecent = a.lastWorkedAt ? new Date(a.lastWorkedAt).getTime() : 0;
       const bRecent = b.lastWorkedAt ? new Date(b.lastWorkedAt).getTime() : 0;
@@ -271,10 +276,10 @@ const analyzePatterns = async () => {
   return {
     totalProjects: projects.length,
     totalHoursLogged: totalHours,
-    typeDistribution: Object.entries(typeDistribution).map(([type, hours]) => ({
-      type,
+    perspectiveDistribution: Object.entries(perspectiveDistribution).map(([perspective, hours]) => ({
+      perspective,
       hours,
-      percentage: ((hours / totalHours) * 100).toFixed(1)
+      percentage: totalHours > 0 ? ((hours / totalHours) * 100).toFixed(1) : '0.0'
     })),
     mostEngagedProject: activeProjects[0]?.name || 'None',
     dormantProjects: dormantProjects.map(p => ({
@@ -288,6 +293,7 @@ const analyzePatterns = async () => {
 };
 
 const getProjectDetails = async (projectName) => {
+  // Use unifiedDB instead of Dexie
   const projects = await getAllProjects();
   const project = projects.find(p => 
     p.name.toLowerCase() === projectName.toLowerCase()
@@ -297,25 +303,21 @@ const getProjectDetails = async (projectName) => {
     return { error: `Project "${projectName}" not found` };
   }
   
-  const timeLogs = await db.timeLogs
-    .where('projectId')
-    .equals(project.id)
-    .toArray();
+  const allTimeLogs = await getAllTimeLogs();
+  const timeLogs = allTimeLogs.filter(log => log.projectId === project.id);
   
-  const journalEntries = await db.journalEntries
-    .where('projectId')
-    .equals(project.id)
-    .toArray();
+  const allJournalEntries = await getAllJournalEntries();
+  const journalEntries = allJournalEntries.filter(entry => entry.projectId === project.id);
   
   return {
     name: project.name,
-    type: project.type,
+    perspective: project.perspective,
     status: project.status,
     description: project.description,
     motivation: project.motivation,
     goals: project.goals,
-    totalHours: project.totalHoursLogged,
-    targetHours: project.targetHours,
+    totalHours: project.totalHoursLogged || 0,
+    targetHours: project.targetHours || 0,
     timeLogCount: timeLogs.length,
     journalEntryCount: journalEntries.length,
     lastWorked: project.lastWorkedAt 
@@ -332,8 +334,10 @@ const getProjectDetails = async (projectName) => {
   };
 };
 
+
+
 // Main chat function
-export const sendMessage = async (userMessage, conversationHistory = []) => {
+export const sendMessage = async (userMessage, conversationHistory = [], customSystemPrompt = null) => {
   try {
     // Get API key from settings
   //  const apiKey = await getApiKey();
@@ -352,7 +356,7 @@ export const sendMessage = async (userMessage, conversationHistory = []) => {
     ];
     
     // System prompt that defines the AI's role
-    const systemPrompt = `You are RetireWise AI, an intelligent advisor helping a retired person manage their portfolio of projects and activities.
+    const systemPrompt = customSystemPrompt || `You are RetireWise AI, an intelligent advisor helping a retired person manage their portfolio of projects and activities.
 
 The user retired 2 years ago and is experimenting with different activities including building projects, learning new skills, considering consulting, and exploring wildcards. They track their time, journal entries, and progress across multiple projects.
 
@@ -370,6 +374,10 @@ Keep responses conversational and concise (2-3 paragraphs max unless asked for m
     // First API call - may result in tool use
     console.log('🤖 Calling Claude API...');
 
+    // ADD THIS:
+    if (customSystemPrompt) {
+      console.log('📊 Using portfolio-aware system prompt');
+    }
 
 // Determine API endpoint
 // replaced - - const API_ENDPOINT = process.env.NODE_ENV === 'development'

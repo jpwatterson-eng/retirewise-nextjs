@@ -1,8 +1,11 @@
 // src/components/AIChat.js
+// COMPLETE VERSION: Firestore-only + Portfolio Context
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Brain, Loader } from 'lucide-react';
 import { sendMessage } from '@/services/aiService';
-import db, { generateId } from '@/db/database';
+import { createConversation, getConversations, updateConversation } from '@/db/unifiedDB';
+import { usePortfolioContext } from '@/hooks/usePortfolioContext';
+import { generatePortfolioAwarePrompt } from '@/lib/ai-prompt-generator';
 
 const AIChat = () => {
   const [messages, setMessages] = useState([]);
@@ -10,14 +13,20 @@ const AIChat = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [currentConversationId, setCurrentConversationId] = useState(null);
   const messagesEndRef = useRef(null);
+  
+  // Portfolio context for AI
+  const { portfolioContext, loading: contextLoading } = usePortfolioContext();
 
   useEffect(() => {
     loadOrCreateConversation();
   }, []);
 
-  useEffect(() => {
+useEffect(() => {
+  const timer = setTimeout(() => {
     scrollToBottom();
-  }, [messages]);
+  }, 100);
+  return () => clearTimeout(timer);
+}, [messages]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -25,44 +34,42 @@ const AIChat = () => {
 
   const loadOrCreateConversation = async () => {
     try {
-      // Get most recent conversation
-      const conversations = await db.conversations
-        .orderBy('lastMessageAt')
-        .reverse()
-        .limit(1)
-        .toArray();
+      // Get most recent conversation from Firestore
+      const conversations = await getConversations();
 
       if (conversations.length > 0) {
         const conv = conversations[0];
         setCurrentConversationId(conv.id);
-        setMessages(conv.messages);
+        setMessages(conv.messages || []);
+
+        // Force scroll to bottom after loading conversation
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 150);
+
       } else {
         // Create initial conversation with welcome message
         const welcomeMessage = {
           role: 'assistant',
-          content: "Hello! I'm your RetireWise AI advisor. I can help you think through your retirement activities, analyze patterns in your projects, and provide insights based on your data.\n\nTry asking me things like:\n• What should I focus on today?\n• Analyze my recent activity patterns\n• Tell me about my Wanderwise project\n• What projects have I been neglecting?",
+          content: "Hello! I'm your RetireWise AI advisor. I can help you think through your retirement activities, analyze patterns in your projects, and provide insights based on your portfolio data.\n\nTry asking me things like:\n• How balanced is my portfolio right now?\n• What should I focus on today?\n• Analyze my recent activity patterns\n• Which projects need attention?",
           timestamp: new Date().toISOString(),
           contextUsed: null
         };
 
-        const conversationId = generateId('conv');
-        await db.conversations.add({
-          id: conversationId,
+        const conversationData = {
           title: 'New Conversation',
-          startedAt: new Date().toISOString(),
-          lastMessageAt: new Date().toISOString(),
-          messageCount: 1,
           messages: [welcomeMessage],
-          conversationType: 'general',
-          actionItems: null,
-          resolved: false,
-          archived: false,
-          favorite: false,
-          tags: []
-        });
+          conversationType: 'general'
+        };
 
+        const conversationId = await createConversation(conversationData);
         setCurrentConversationId(conversationId);
         setMessages([welcomeMessage]);
+        
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 150);
+
       }
     } catch (error) {
       console.error('Error loading conversation:', error);
@@ -73,9 +80,8 @@ const AIChat = () => {
     if (!currentConversationId) return;
 
     try {
-      await db.conversations.update(currentConversationId, {
+      await updateConversation(currentConversationId, {
         messages: updatedMessages,
-        lastMessageAt: new Date().toISOString(),
         messageCount: updatedMessages.length
       });
     } catch (error) {
@@ -105,8 +111,19 @@ const AIChat = () => {
         content: msg.content
       }));
 
-      // Call AI service
-      const result = await sendMessage(input.trim(), conversationHistory);
+      // Generate portfolio-aware system prompt if context is available
+      let systemPrompt = null;
+      if (portfolioContext) {
+        systemPrompt = generatePortfolioAwarePrompt(portfolioContext);
+        console.log('📊 Using portfolio-aware system prompt');
+      }
+
+      // Call AI service with portfolio context
+      const result = await sendMessage(
+        input.trim(), 
+        conversationHistory,
+        systemPrompt // Custom system prompt with portfolio data
+      );
 
       const assistantMessage = {
         role: 'assistant',
@@ -114,7 +131,11 @@ const AIChat = () => {
         timestamp: new Date().toISOString(),
         contextUsed: {
           toolsUsed: result.toolsUsed || [],
-          data: result.contextUsed
+          data: result.contextUsed,
+          portfolioContext: portfolioContext ? {
+            balanceScore: portfolioContext.balanceScore.score,
+            grade: portfolioContext.balanceScore.grade
+          } : null
         }
       };
 
@@ -127,7 +148,7 @@ const AIChat = () => {
       
       const errorMessage = {
         role: 'assistant',
-        content: `Sorry, I encountered an error: ${error.message}\n\nMake sure you've set your Claude API key in src/services/aiService.js`,
+        content: `Sorry, I encountered an error: ${error.message}`,
         timestamp: new Date().toISOString(),
         contextUsed: null,
         isError: true
@@ -148,14 +169,45 @@ const AIChat = () => {
   };
 
   const quickPrompts = [
+    'How balanced is my portfolio?',
     'What should I focus on today?',
     'Analyze my recent patterns',
-    'Show my project activity',
     'Which projects need attention?'
   ];
 
+  // Show loading state while fetching portfolio context
+  if (contextLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <Loader className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-2" />
+          <p className="text-gray-600">Loading your portfolio context...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full">
+      {/* Portfolio Context Header */}
+      {portfolioContext && (
+        <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-b border-gray-200 p-3">
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-2">
+              <Brain className="w-4 h-4 text-blue-600" />
+              <span className="text-gray-700">
+                Portfolio Balance: <strong className="text-blue-600">
+                  {portfolioContext.balanceScore.score}/100
+                </strong> (Grade: {portfolioContext.balanceScore.grade})
+              </span>
+            </div>
+            <span className="text-gray-500 text-xs">
+              {portfolioContext.totalHours}h tracked • {portfolioContext.activeProjects} active projects
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((msg, idx) => (
@@ -182,6 +234,15 @@ const AIChat = () => {
                         {tool}
                       </span>
                     ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Show portfolio context badge */}
+              {msg.contextUsed?.portfolioContext && (
+                <div className="mt-2 pt-2 border-t border-gray-100">
+                  <div className="flex items-center gap-1 text-xs text-gray-500">
+                    <span>📊 Portfolio-aware response</span>
                   </div>
                 </div>
               )}
@@ -231,7 +292,7 @@ const AIChat = () => {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="Ask me anything..."
+            placeholder="Ask me anything about your portfolio..."
             disabled={isLoading}
             rows="1"
             className="flex-1 px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none disabled:bg-gray-50 disabled:text-gray-500"
@@ -251,3 +312,38 @@ const AIChat = () => {
 };
 
 export default AIChat;
+
+
+/* ============================================
+   KEY CHANGES FROM YOUR ORIGINAL
+   ============================================
+
+REMOVED:
+❌ import db, { generateId } from '@/db/database';
+❌ db.conversations.orderBy()...toArray()
+❌ db.conversations.add()
+❌ db.conversations.update()
+❌ generateId('conv')
+
+ADDED:
+✅ import { createConversation, getConversations, updateConversation } from '@/db/unifiedDB';
+✅ import { usePortfolioContext } from '@/hooks/usePortfolioContext';
+✅ import { generatePortfolioAwarePrompt } from '@/lib/ai-prompt-generator';
+✅ const { portfolioContext, loading: contextLoading } = usePortfolioContext();
+✅ Portfolio context header in UI
+✅ Portfolio-aware system prompt generation
+✅ Loading state for portfolio context
+
+FIRESTORE FUNCTIONS USED:
+- getConversations() - Gets all conversations sorted by updatedAt
+- createConversation(data) - Creates new conversation, returns ID
+- updateConversation(id, updates) - Updates existing conversation
+
+RESULT:
+- No Dexie dependencies ✅
+- Works with Firestore ✅
+- Has portfolio context ✅
+- AI knows balance score ✅
+- All existing tools work ✅
+
+============================================ */

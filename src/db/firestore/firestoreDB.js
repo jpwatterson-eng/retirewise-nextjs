@@ -290,6 +290,14 @@ export const updateConversation = async (userId, conversationId, updates) => {
   console.log('✅ Conversation updated in Firestore:', conversationId);
 };
 
+// Add after updateConversation in firestoreDB.js (around line 250)
+export const deleteConversation = async (userId, conversationId) => {
+  const ref = doc(db, `users/${userId}/conversations/${conversationId}`);
+  await deleteDoc(ref);
+  
+  console.log('✅ Conversation deleted from Firestore:', conversationId);
+};
+
 // ==================== USER PROFILE ====================
 
 export const createUserProfile = async (userId, profileData) => {
@@ -426,6 +434,7 @@ export default {
   createConversation,
   getConversations,
   updateConversation,
+  deleteConversation,
   
   // User Profile
   createUserProfile,

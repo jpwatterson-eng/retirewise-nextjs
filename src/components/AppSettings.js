@@ -3,7 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { Key, Download, Upload, Trash2, AlertTriangle, Check, Eye, EyeOff, Info } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import db from '@/db/database';
+// import db from '@/db/database';
+// import * as db from '@/db/unifiedDB';
+// import * from '@/db/firestore/firestoreDB';
+import { getUserProfile, updateUserProfile } from '@/db/unifiedDB';
 
 const Settings = () => {
   const [settings, setSettings] = useState(null);
@@ -27,7 +30,9 @@ const Settings = () => {
 
   const loadSettings = async () => {
     try {
-      const userSettings = await db.settings.get('user_settings');
+
+      // const userSettings = await db.settings.get('user_settings');
+      const userSettings = await getUserProfile('user_settings').settings
       if (userSettings) {
         setSettings(userSettings);
         // Don't load the actual API key for security
@@ -51,7 +56,8 @@ const Settings = () => {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         };
-        await db.settings.add(defaultSettings);
+        // await db.settings.add(defaultSettings);
+        await updateUserProfile({settings: defaultSettings});
         setSettings(defaultSettings);
       }
     } catch (error) {
