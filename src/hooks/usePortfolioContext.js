@@ -1,5 +1,7 @@
 // src/hooks/usePortfolioContext.js
 // COMPLETE VERSION - Copy this entire file
+'use client';
+
 import { useState, useEffect } from 'react';
 import { getPortfolio, calculatePortfolioBalance, getAllProjects, getAllTimeLogs } from '@/db/unifiedDB';
 

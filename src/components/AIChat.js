@@ -1,5 +1,7 @@
 // src/components/AIChat.js
 // COMPLETE VERSION: Firestore-only + Portfolio Context
+'use client';
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Brain, Loader } from 'lucide-react';
 import { sendMessage } from '@/services/aiService';

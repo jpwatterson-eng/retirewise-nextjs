@@ -19,9 +19,6 @@ const TimeLogsView = () => {
   const [customEndDate, setCustomEndDate] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
 
-  useEffect(() => {
-    loadData();
-  }, []);
 
   const loadData = async () => {
     try {
@@ -37,6 +34,10 @@ const TimeLogsView = () => {
       setLoading(false);
     }
   };
+  
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const handleEdit = (log) => {
     setEditingLog({ ...log });
