@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Clock, Edit2, Trash2, Calendar, Filter, X, Search } from 'lucide-react';
-import db from '@/db/database';
+
 import * as unifiedDB from '@/db/unifiedDB';
 
 const TimeLogsView = () => {

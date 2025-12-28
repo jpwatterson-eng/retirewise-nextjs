@@ -312,38 +312,3 @@ useEffect(() => {
 };
 
 export default AIChat;
-
-
-/* ============================================
-   KEY CHANGES FROM YOUR ORIGINAL
-   ============================================
-
-REMOVED:
-❌ import db, { generateId } from '@/db/database';
-❌ db.conversations.orderBy()...toArray()
-❌ db.conversations.add()
-❌ db.conversations.update()
-❌ generateId('conv')
-
-ADDED:
-✅ import { createConversation, getConversations, updateConversation } from '@/db/unifiedDB';
-✅ import { usePortfolioContext } from '@/hooks/usePortfolioContext';
-✅ import { generatePortfolioAwarePrompt } from '@/lib/ai-prompt-generator';
-✅ const { portfolioContext, loading: contextLoading } = usePortfolioContext();
-✅ Portfolio context header in UI
-✅ Portfolio-aware system prompt generation
-✅ Loading state for portfolio context
-
-FIRESTORE FUNCTIONS USED:
-- getConversations() - Gets all conversations sorted by updatedAt
-- createConversation(data) - Creates new conversation, returns ID
-- updateConversation(id, updates) - Updates existing conversation
-
-RESULT:
-- No Dexie dependencies ✅
-- Works with Firestore ✅
-- Has portfolio context ✅
-- AI knows balance score ✅
-- All existing tools work ✅
-
-============================================ */

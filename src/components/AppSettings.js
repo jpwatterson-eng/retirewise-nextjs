@@ -3,9 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Key, Download, Upload, Trash2, AlertTriangle, Check, Eye, EyeOff, Info } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-// import db from '@/db/database';
-// import * as db from '@/db/unifiedDB';
-// import * from '@/db/firestore/firestoreDB';
+
 import { getUserProfile, updateUserProfile } from '@/db/unifiedDB';
 
 const Settings = () => {
