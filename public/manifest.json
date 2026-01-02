@@ -1,12 +1,12 @@
 {
-  "name": "RetireWise",
+  "name": "RetireWise - Portfolio Hub",
   "short_name": "RetireWise",
-  "description": "Your intelligent retirement portfolio advisor",
+  "description": "Your personal operating system for retirement",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#3B82F6",
-  "orientation": "portrait",
+  "background_color": "#1a202c",
+  "theme_color": "#3b82f6",
+  "orientation": "portrait-primary",
   "icons": [
     {
       "src": "/icons/icon-72x72.png",
@@ -31,7 +31,8 @@
     {
       "src": "/icons/icon-192x192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "/icons/icon-256x256.png",
@@ -41,7 +42,33 @@
     {
       "src": "/icons/icon-512x512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
-  ]
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshot-mobile.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow"
+    }
+  ],
+  "categories": ["productivity", "lifestyle"],
+  "shortcuts": [
+    {
+      "name": "Quick Log",
+      "short_name": "Log",
+      "description": "Log time quickly",
+      "url": "/quick-log",
+      "icons": [{"src": "/icon-log.png", "sizes": "96x96"}]
+    },
+    {
+      "name": "Journal",
+      "short_name": "Journal",
+      "description": "Write a journal entry",
+      "url": "/journal/new",
+      "icons": [{"src": "/icon-journal.png", "sizes": "96x96"}]
+    }
+  ]  
 }

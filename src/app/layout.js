@@ -2,6 +2,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
 import UserInitializer from '@/components/UserInitializer';
+import { MobileNav } from '@/components/MobileNav';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -34,6 +35,7 @@ export default function RootLayout({ children }) {
         <AuthProvider>
           <UserInitializer>
             {children}
+            <MobileNav />
           </UserInitializer>
         </AuthProvider>
       </body>
