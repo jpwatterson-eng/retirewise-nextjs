@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { db } from '@/lib/firebase';
+import { db } from '@/db/unifiedDB';
 import { collection, addDoc, query, getDocs, orderBy, limit } from 'firebase/firestore';
 
 const PERSPECTIVES = [
