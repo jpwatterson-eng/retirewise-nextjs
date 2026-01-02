@@ -1,40 +1,40 @@
-// components/InstallPrompt.jsx
-'use client';
+// components/InstallPrompt.tsx
+"use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 
 export function InstallPrompt() {
-  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showPrompt, setShowPrompt] = useState(false);
 
   useEffect(() => {
-    const handler = (e) => {
+    const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
-      
+
       // Show prompt if not installed and user has visited 2+ times
-      const visits = parseInt(localStorage.getItem('visitCount') || '0');
+      const visits = parseInt(localStorage.getItem("visitCount") || "0");
       if (visits >= 2) {
         setShowPrompt(true);
       }
     };
 
-    window.addEventListener('beforeinstallprompt', handler);
-    
-    // Track visits
-    const visits = parseInt(localStorage.getItem('visitCount') || '0');
-    localStorage.setItem('visitCount', (visits + 1).toString());
+    window.addEventListener("beforeinstallprompt", handler);
 
-    return () => window.removeEventListener('beforeinstallprompt', handler);
+    // Track visits
+    const visits = parseInt(localStorage.getItem("visitCount") || "0");
+    localStorage.setItem("visitCount", (visits + 1).toString());
+
+    return () => window.removeEventListener("beforeinstallprompt", handler);
   }, []);
 
   const handleInstall = async () => {
     if (!deferredPrompt) return;
-    
+
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
-    
-    if (outcome === 'accepted') {
+
+    if (outcome === "accepted") {
       setDeferredPrompt(null);
       setShowPrompt(false);
     }

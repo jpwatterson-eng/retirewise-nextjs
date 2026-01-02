@@ -1,16 +1,22 @@
-// components/MobileNav.jsx
-'use client';
+// components/MobileNav.tsx
+"use client";
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Home, PlusCircle, MessageCircle, BarChart3, Settings } from 'lucide-react';
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  Home,
+  PlusCircle,
+  MessageCircle,
+  BarChart3,
+  Settings,
+} from "lucide-react";
 
 const NAV_ITEMS = [
-  { href: '/dashboard', icon: Home, label: 'Hub' },
-  { href: '/quick-log', icon: PlusCircle, label: 'Log', highlight: true },
-  { href: '/ai-chat', icon: MessageCircle, label: 'AI' },
-  { href: '/analytics', icon: BarChart3, label: 'Stats' },
-  { href: '/settings', icon: Settings, label: 'Settings' },
+  { href: "/dashboard", icon: Home, label: "Hub" },
+  { href: "/quick-log", icon: PlusCircle, label: "Log", highlight: true },
+  { href: "/ai-chat", icon: MessageCircle, label: "AI" },
+  { href: "/analytics", icon: BarChart3, label: "Stats" },
+  { href: "/settings", icon: Settings, label: "Settings" },
 ];
 
 export function MobileNav() {
@@ -22,14 +28,14 @@ export function MobileNav() {
         {NAV_ITEMS.map((item) => {
           const isActive = pathname === item.href;
           const Icon = item.icon;
-          
+
           return (
             <Link
               key={item.href}
               href={item.href}
               className={`
                 flex flex-col items-center justify-center flex-1 h-full
-                ${item.highlight ? 'relative' : ''}
+                ${item.highlight ? "relative" : ""}
               `}
             >
               {item.highlight && (
@@ -39,10 +45,16 @@ export function MobileNav() {
               )}
               {!item.highlight && (
                 <>
-                  <Icon 
-                    className={`w-6 h-6 ${isActive ? 'text-blue-600' : 'text-gray-400'}`} 
+                  <Icon
+                    className={`w-6 h-6 ${
+                      isActive ? "text-blue-600" : "text-gray-400"
+                    }`}
                   />
-                  <span className={`text-xs mt-1 ${isActive ? 'text-blue-600 font-medium' : 'text-gray-500'}`}>
+                  <span
+                    className={`text-xs mt-1 ${
+                      isActive ? "text-blue-600 font-medium" : "text-gray-500"
+                    }`}
+                  >
                     {item.label}
                   </span>
                 </>

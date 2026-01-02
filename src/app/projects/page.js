@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
-import AppLayout from '@/components/AppLayout';
+import AppLayout from '@/components/AppLayout.js';
 import ProjectsListView from '@/components/ProjectsListView';
 import * as unifiedDB from '@/db/unifiedDB';
 import { getAllPerspectives, getPerspective } from '@/utils/perspectiveHelpers';

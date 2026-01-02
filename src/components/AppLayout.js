@@ -11,11 +11,6 @@ export default function AppLayout({ children, showFAB = false }) {
   const pathname = usePathname();
   const router = useRouter();
 
-  //
-  //  { id: 'projects', path: '/projects', icon: FolderOpen,label: 'Projects' },
-  //  { id: 'insights', path: '/insights', icon: Lightbulb,label: 'Insights' },
-  // 
-
   const navItems = [
     { id: 'home', path: '/', icon: HomeIcon, label: 'Home' },
     { id: 'chat', path: '/chat', icon: MessageSquare, label: 'AI Advisor' },

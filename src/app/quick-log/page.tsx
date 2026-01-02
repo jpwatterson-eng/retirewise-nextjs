@@ -1,71 +1,76 @@
-// app/quick-log/page.jsx
-'use client';
+// app/quick-log/page.tsx
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { db } from '@/config/firebase';
-import { collection, addDoc, query, getDocs, orderBy, limit } from 'firebase/firestore';
+import { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext.js";
+import { db } from "@/config/firebase.js";
+import {
+  collection,
+  addDoc,
+  query,
+  getDocs,
+  orderBy,
+  limit,
+} from "firebase/firestore";
 
 const PERSPECTIVES = [
-  { id: 'enjoy', label: 'Enjoy', icon: '🎨', color: 'bg-purple-500' },
-  { id: 'learn', label: 'Learn', icon: '📚', color: 'bg-blue-500' },
-  { id: 'earn', label: 'Earn', icon: '💰', color: 'bg-green-500' },
-  { id: 'contribute', label: 'Contribute', icon: '🤝', color: 'bg-orange-500' },
+  { id: "enjoy", label: "Enjoy", icon: "🎨", color: "bg-purple-500" },
+  { id: "learn", label: "Learn", icon: "📚", color: "bg-blue-500" },
+  { id: "earn", label: "Earn", icon: "💰", color: "bg-green-500" },
+  { id: "contribute", label: "Contribute", icon: "🤝", color: "bg-orange-500" },
 ];
 
 const QUICK_DURATIONS = [
-  { label: '15m', minutes: 15 },
-  { label: '30m', minutes: 30 },
-  { label: '1h', minutes: 60 },
-  { label: '2h', minutes: 120 },
-  { label: 'Custom', minutes: null },
+  { label: "15m", minutes: 15 },
+  { label: "30m", minutes: 30 },
+  { label: "1h", minutes: 60 },
+  { label: "2h", minutes: 120 },
+  { label: "Custom", minutes: null },
 ];
+
+type Perspective = "enjoy" | "learn" | "earn" | "contribute";
 
 export default function QuickLogPage() {
   const { user } = useAuth();
-  const [perspective, setPerspective] = useState(null);
-  const [project, setProject] = useState('');
-  const [duration, setDuration] = useState(60);
-  const [customDuration, setCustomDuration] = useState('');
-  const [note, setNote] = useState('');
-  const [recentProjects, setRecentProjects] = useState([]);
-  const [isLogging, setIsLogging] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
+  const [perspective, setPerspective] = useState<Perspective | null>(null);
+  const [project, setProject] = useState<string>("");
+  const [duration, setDuration] = useState<number>(60);
+  const [customDuration, setCustomDuration] = useState<string>("");
+  const [note, setNote] = useState<string>("");
+  const [recentProjects, setRecentProjects] = useState<string[]>([]);
+  const [isLogging, setIsLogging] = useState<boolean>(false);
+  const [showSuccess, setShowSuccess] = useState<boolean>(false);
 
   // Load recent projects
   useEffect(() => {
     if (!user) return;
-    
+
     const loadRecentProjects = async () => {
       try {
         const timeLogsRef = collection(db, `users/${user.uid}/timeLogs`);
-        const q = query(
-          timeLogsRef,
-          orderBy('timestamp', 'desc'),
-          limit(10)
-        );
-        
+        const q = query(timeLogsRef, orderBy("timestamp", "desc"), limit(10));
+
         const snapshot = await getDocs(q);
-        const projects = new Set();
-        snapshot.docs.forEach(doc => {
+        const projects = new Set<string>();
+        snapshot.docs.forEach((doc) => {
           const projectName = doc.data().project;
           if (projectName) projects.add(projectName);
         });
-        
+
         setRecentProjects(Array.from(projects).slice(0, 5));
       } catch (error) {
-        console.error('Error loading recent projects:', error);
+        console.error("Error loading recent projects:", error);
       }
     };
-    
+
     loadRecentProjects();
   }, [user]);
 
   const handleLog = async () => {
     if (!user || !perspective || !project) return;
-    
+
     setIsLogging(true);
-    
+
     try {
       const timeLogsRef = collection(db, `users/${user.uid}/timeLogs`);
       await addDoc(timeLogsRef, {
@@ -75,32 +80,31 @@ export default function QuickLogPage() {
         note: note || null,
         timestamp: new Date().toISOString(),
         createdAt: new Date().toISOString(),
-        source: 'quick-log',
-        appId: 'retirewise', // Add this for multi-app support
+        source: "quick-log",
+        appId: "retirewise", // Add this for multi-app support
       });
-      
+
       // Show success animation
       setShowSuccess(true);
-      
+
       // Reset form after brief delay
       setTimeout(() => {
         setPerspective(null);
-        setProject('');
+        setProject("");
         setDuration(60);
-        setCustomDuration('');
-        setNote('');
+        setCustomDuration("");
+        setNote("");
         setShowSuccess(false);
       }, 1500);
-      
     } catch (error) {
-      console.error('Error logging time:', error);
-      alert('Failed to log time. Please try again.');
+      console.error("Error logging time:", error);
+      alert("Failed to log time. Please try again.");
     } finally {
       setIsLogging(false);
     }
   };
 
-  const handleCustomDuration = (value) => {
+  const handleCustomDuration = (value: string) => {
     setCustomDuration(value);
     const parsed = parseInt(value);
     setDuration(isNaN(parsed) ? 0 : parsed);
@@ -137,12 +141,13 @@ export default function QuickLogPage() {
             {PERSPECTIVES.map((p) => (
               <button
                 key={p.id}
-                onClick={() => setPerspective(p.id)}
+                onClick={() => setPerspective(p.id as Perspective)}
                 className={`
                   p-4 rounded-xl border-2 transition-all
-                  ${perspective === p.id
-                    ? `${p.color} border-transparent text-white scale-105`
-                    : 'bg-white border-gray-200 text-gray-700'
+                  ${
+                    perspective === p.id
+                      ? `${p.color} border-transparent text-white scale-105`
+                      : "bg-white border-gray-200 text-gray-700"
                   }
                 `}
               >
@@ -199,16 +204,17 @@ export default function QuickLogPage() {
                   onClick={() => {
                     if (d.minutes) {
                       setDuration(d.minutes);
-                      setCustomDuration('');
+                      setCustomDuration("");
                     } else {
-                      setCustomDuration('');
+                      setCustomDuration("");
                     }
                   }}
                   className={`
                     py-3 rounded-lg border-2 font-semibold transition-all text-sm
-                    ${duration === d.minutes && d.minutes
-                      ? 'bg-blue-600 border-blue-600 text-white'
-                      : 'bg-white border-gray-200 text-gray-700'
+                    ${
+                      duration === d.minutes && d.minutes
+                        ? "bg-blue-600 border-blue-600 text-white"
+                        : "bg-white border-gray-200 text-gray-700"
                     }
                   `}
                 >
@@ -216,7 +222,10 @@ export default function QuickLogPage() {
                 </button>
               ))}
             </div>
-            {(customDuration || (!QUICK_DURATIONS.slice(0, -1).some(d => d.minutes === duration))) && (
+            {(customDuration ||
+              !QUICK_DURATIONS.slice(0, -1).some(
+                (d) => d.minutes === duration
+              )) && (
               <input
                 type="number"
                 value={customDuration}
@@ -252,13 +261,14 @@ export default function QuickLogPage() {
           disabled={!canSubmit || isLogging}
           className={`
             w-full py-4 rounded-xl font-bold text-lg transition-all
-            ${canSubmit && !isLogging
-              ? 'bg-blue-600 text-white active:scale-95'
-              : 'bg-gray-200 text-gray-400'
+            ${
+              canSubmit && !isLogging
+                ? "bg-blue-600 text-white active:scale-95"
+                : "bg-gray-200 text-gray-400"
             }
           `}
         >
-          {isLogging ? 'Logging...' : 'Log It ✓'}
+          {isLogging ? "Logging..." : "Log It ✓"}
         </button>
       </div>
     </div>
