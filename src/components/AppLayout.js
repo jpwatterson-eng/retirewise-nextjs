@@ -12,7 +12,7 @@ export default function AppLayout({ children, showFAB = false }) {
   const router = useRouter();
 
   const navItems = [
-    { id: 'home', path: '/', icon: HomeIcon, label: 'Home' },
+    { id: 'hub', path: '/', icon: HomeIcon, label: 'Hub' },
     { id: 'chat', path: '/chat', icon: MessageSquare, label: 'AI Advisor' },
     { id: 'journal', path: '/journal', icon: BookOpen, label: 'Journal' },
     { id: 'stats', path: '/analytics', icon: BarChart3, label: 'Analytics' },
