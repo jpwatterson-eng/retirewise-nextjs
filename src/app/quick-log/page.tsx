@@ -166,6 +166,7 @@ export default function QuickLogPage() {
       // 2. IMPORTANT: Update the Project's running total
       await updateDoc(projectRef, {
         totalHoursLogged: increment(logHours), // This makes it show up in your charts!
+        updatedAt: new Date().toISOString(),
       });
 
       setShowSuccess(true);

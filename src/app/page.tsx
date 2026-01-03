@@ -13,7 +13,9 @@ interface ProjectItem {
   name: string;
   perspective: string;
   status: string;
-  totalHoursLogged?: number; // The '?' means it might not exist yet
+  totalHoursLogged?: number;
+  targetHours?: number;
+  updatedAt?: string;
 }
 
 // 1. REUSE YOUR PERSPECTIVE DEFINITIONS
@@ -118,6 +120,20 @@ export default function HomePage() {
     );
   }, [allProjects]);
 
+  const lastActivity = useMemo(() => {
+    if (allProjects.length === 0) return null;
+
+    // Find the project with the most recent 'updatedAt' or 'lastLogged'
+    // (Assuming your Phase 4 logic updates these fields)
+    const sorted = [...allProjects].sort(
+      (a, b) =>
+        new Date(b.updatedAt || 0).getTime() -
+        new Date(a.updatedAt || 0).getTime()
+    );
+
+    return sorted[0];
+  }, [allProjects]);
+
   // const dailyGoal = 4; // Set your target hours here
   // const progressPercent = Math.min((todayTotal / dailyGoal) * 100, 100);
 
@@ -198,6 +214,12 @@ export default function HomePage() {
                 Total
               </span>
             </div>
+            {/* New Snippet: Positioned just below the ring or in the text area */}
+            {lastActivity && (
+              <p className="text-[10px] text-gray-400 mt-2 italic">
+                Last: {lastActivity.name}
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -255,25 +277,53 @@ export default function HomePage() {
           <div className="space-y-3">
             {allProjects
               .filter((p) => p.status === "active")
-              .map((project) => (
-                <div
-                  key={project.id}
-                  className="bg-white p-4 rounded-xl flex items-center justify-between shadow-sm border border-gray-50"
-                >
-                  <div>
-                    <h3 className="font-bold text-gray-800">{project.name}</h3>
-                    <p className="text-xs text-gray-400">
-                      {PERSPECTIVES[project.perspective?.toLowerCase()]
-                        ?.label || "General"}
-                    </p>
+              .map((project) => {
+                const projectGoal = project.targetHours || 20; // Default goal if none set
+                const projectProgress = Math.min(
+                  ((project.totalHoursLogged || 0) / projectGoal) * 100,
+                  100
+                );
+
+                return (
+                  <div
+                    key={project.id}
+                    className="bg-white p-4 rounded-xl shadow-sm border border-gray-50"
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <h3 className="font-bold text-gray-800">
+                          {project.name}
+                        </h3>
+                        <p className="text-xs text-gray-400">
+                          {PERSPECTIVES[project.perspective?.toLowerCase()]
+                            ?.label || "General"}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-sm font-black text-blue-600">
+                          {(project.totalHoursLogged || 0).toFixed(1)}h
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Mini Progress Bar */}
+                    <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-blue-500 rounded-full transition-all duration-700"
+                        style={{ width: `${projectProgress}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between mt-1">
+                      <span className="text-[9px] text-gray-300 uppercase font-bold">
+                        Progress
+                      </span>
+                      <span className="text-[9px] text-gray-400 font-bold">
+                        {Math.round(projectProgress)}%
+                      </span>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <span className="text-sm font-bold text-gray-700">
-                      {(project.totalHoursLogged || 0).toFixed(1)}h
-                    </span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
           </div>
         </section>
       </div>
