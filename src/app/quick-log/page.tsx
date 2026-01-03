@@ -12,10 +12,12 @@ import {
   orderBy,
   limit,
   serverTimestamp, // Use Firestore server timestamps for accuracy
+  doc,
+  updateDoc,
+  increment,
 } from "firebase/firestore";
 
 import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { doc, updateDoc, increment } from "firebase/firestore";
 
 // RESTORED ORIGINAL PERSPECTIVES
 const PERSPECTIVES = [
@@ -123,6 +125,13 @@ export default function QuickLogPage() {
   const handleProjectSelect = (p: ProjectItem) => {
     setSelectedProject(p);
     setPerspective(p.perspective);
+  };
+
+  const handleCustomDuration = (value: string) => {
+    setCustomDuration(value);
+    const parsed = parseInt(value);
+    // If the user clears the box, default to 0; otherwise use the number
+    setDuration(isNaN(parsed) ? 0 : parsed);
   };
 
   const handleLog = async () => {
