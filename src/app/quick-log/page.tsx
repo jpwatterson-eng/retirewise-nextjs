@@ -175,6 +175,7 @@ export default function QuickLogPage() {
         setDuration(60);
         setNote("");
         setShowSuccess(false);
+        window.location.href = "/";
       }, 1500);
     } catch (error) {
       console.error("Sync Error:", error);
@@ -197,7 +198,7 @@ export default function QuickLogPage() {
     );
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
+    <div className="min-h-screen bg-gray-50 pb-40">
       <div className="bg-white border-b px-6 py-4 sticky top-0 z-10">
         <h1 className="text-xl font-bold text-gray-900">Quick Log</h1>
         <p className="text-sm text-gray-500">Fast-track your progress</p>
@@ -264,8 +265,6 @@ export default function QuickLogPage() {
         )}
 
         {/* DURATION & NOTES follow... */}
-        {/* [Keeping your existing Duration and Note UI here] */}
-        {/* Duration */}
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -325,14 +324,18 @@ export default function QuickLogPage() {
         </div>
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 p-6 bg-white border-t">
+      <div className="fixed bottom-0 left-0 right-0 p-6 bg-white/80 backdrop-blur-md border-t z-50">
         <button
           onClick={handleLog}
           disabled={!selectedProject || isLogging}
-          className="w-full py-4 rounded-2xl bg-blue-600 text-white font-bold text-lg disabled:bg-gray-200 shadow-xl"
+          className="w-full py-4 rounded-2xl bg-blue-600 text-white font-bold text-lg disabled:bg-gray-200 shadow-xl active:scale-95 transition-transform"
         >
           {isLogging ? "Saving..." : "Log It ✓"}
         </button>
+        {/* Pro-tip: Adding a safe-area-inset-bottom div here 
+           prevents the button from being too close to the "Home" swipe bar on iPhones.
+        */}
+        <div className="h-safe-bottom" />
       </div>
     </div>
   );
