@@ -14,6 +14,9 @@ import {
   serverTimestamp, // Use Firestore server timestamps for accuracy
 } from "firebase/firestore";
 
+import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { doc, updateDoc, increment } from "firebase/firestore";
+
 // RESTORED ORIGINAL PERSPECTIVES
 const PERSPECTIVES = [
   { id: "builder", label: "Builder", icon: "🏗️", color: "bg-blue-600" },
@@ -50,7 +53,11 @@ interface ProjectItem {
 }
 
 export default function QuickLogPage() {
-  const { user } = useAuth();
+  const { user: hookUser, loading: hookLoading } = useAuth();
+
+  const [activeUser, setActiveUser] = useState<any>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
+
   const [perspective, setPerspective] = useState<Perspective | null>(null);
   const [selectedProject, setSelectedProject] = useState<ProjectItem | null>(
     null
@@ -64,13 +71,31 @@ export default function QuickLogPage() {
 
   // LOAD REAL PROJECTS FROM FIRESTORE
   useEffect(() => {
-    if (!user) return;
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        console.log("QuickLog Sync: User confirmed", user.uid);
+        setActiveUser(user);
+      } else {
+        setActiveUser(null);
+      }
+      setIsInitializing(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!activeUser) return;
 
     const fetchProjects = async () => {
       try {
-        const projectsRef = collection(db, `users/${user.uid}/projects`);
+        const projectsRef = collection(db, `users/${activeUser.uid}/projects`);
         // Only fetch active projects for quick logging
-        const q = query(projectsRef, where("status", "==", "active"));
+        const q = query(
+          projectsRef,
+          where("status", "in", ["active", "planning"])
+        );
         const snapshot = await getDocs(q);
 
         const fetched = snapshot.docs.map((doc) => ({
@@ -86,7 +111,13 @@ export default function QuickLogPage() {
     };
 
     fetchProjects();
-  }, [user]);
+  }, [activeUser]);
+
+  // 4. Update your Shields to use isInitializing and activeUser
+  if (isInitializing)
+    return <div className="p-10 text-center">Syncing Hub...</div>;
+  if (!activeUser)
+    return <div className="p-10 text-center">Please log in to RetireWise.</div>;
 
   // AUTO-SELECT PERSPECTIVE WHEN PROJECT IS CHOSEN
   const handleProjectSelect = (p: ProjectItem) => {
@@ -95,21 +126,37 @@ export default function QuickLogPage() {
   };
 
   const handleLog = async () => {
-    if (!user || !perspective || !selectedProject) return;
-
+    if (!activeUser || !perspective || !selectedProject) return;
     setIsLogging(true);
 
     try {
-      const timeLogsRef = collection(db, `users/${user.uid}/timeLogs`);
+      const timeLogsRef = collection(db, `users/${activeUser.uid}/timeLogs`);
+      const projectRef = doc(
+        db,
+        `users/${activeUser.uid}/projects`,
+        selectedProject.id
+      );
+
+      const logDuration = duration; // The minutes (30)
+      const logHours = duration / 60; // The decimal (0.5)
+
+      // 1. Create the Log Entry (matching your old "week ago" fields)
       await addDoc(timeLogsRef, {
-        perspective,
         projectId: selectedProject.id,
         projectName: selectedProject.name,
-        hours: duration / 60, // Convert minutes to decimal hours to match your DB schema
+        perspective: perspective,
+        duration: logDuration, // Your "key one"
+        hours: logHours, // Added for compatibility
         notes: note || "",
+        date: new Date().toISOString().split("T")[0],
         timestamp: serverTimestamp(),
-        source: "quick-log",
-        appId: "retirewise",
+        createdAt: new Date().toISOString(),
+        source: "quick-log-pwa",
+      });
+
+      // 2. IMPORTANT: Update the Project's running total
+      await updateDoc(projectRef, {
+        totalHoursLogged: increment(logHours), // This makes it show up in your charts!
       });
 
       setShowSuccess(true);
@@ -121,8 +168,8 @@ export default function QuickLogPage() {
         setShowSuccess(false);
       }, 1500);
     } catch (error) {
-      console.error("Error logging time:", error);
-      alert("Failed to log time.");
+      console.error("Sync Error:", error);
+      alert("Data saved to log, but project total failed to update.");
     } finally {
       setIsLogging(false);
     }
@@ -149,24 +196,35 @@ export default function QuickLogPage() {
 
       <div className="p-6 space-y-8">
         {/* PROJECT SELECTION FIRST (Better UX) */}
+
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-3">
             Which Project?
           </label>
           <div className="flex flex-wrap gap-2">
-            {allProjects.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => handleProjectSelect(p)}
-                className={`px-4 py-2 rounded-full border-2 transition-all ${
-                  selectedProject?.id === p.id
-                    ? "bg-blue-600 border-transparent text-white shadow-lg"
-                    : "bg-white border-gray-200 text-gray-600"
-                }`}
-              >
-                {p.name}
-              </button>
-            ))}
+            {allProjects.length === 0 ? (
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg w-full">
+                <p className="text-sm text-yellow-700">
+                  ⚠️ No active projects found in Firebase for your account.
+                  <br />
+                  (Check: users/{activeUser?.uid}/projects)
+                </p>
+              </div>
+            ) : (
+              allProjects.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => handleProjectSelect(p)}
+                  className={`px-4 py-2 rounded-full border-2 transition-all ${
+                    selectedProject?.id === p.id
+                      ? "bg-blue-600 border-transparent text-white shadow-lg"
+                      : "bg-white border-gray-200 text-gray-600"
+                  }`}
+                >
+                  {p.name}
+                </button>
+              ))
+            )}
           </div>
         </div>
 
@@ -198,6 +256,64 @@ export default function QuickLogPage() {
 
         {/* DURATION & NOTES follow... */}
         {/* [Keeping your existing Duration and Note UI here] */}
+        {/* Duration */}
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Duration
+          </label>
+          <div className="grid grid-cols-5 gap-2 mb-2">
+            {QUICK_DURATIONS.map((d) => (
+              <button
+                key={d.label}
+                onClick={() => {
+                  if (d.minutes) {
+                    setDuration(d.minutes);
+                    setCustomDuration("");
+                  } else {
+                    setCustomDuration("");
+                  }
+                }}
+                className={`
+                  py-3 rounded-lg border-2 font-semibold transition-all text-sm
+                  ${
+                    duration === d.minutes && d.minutes
+                      ? "bg-blue-600 border-blue-600 text-white"
+                      : "bg-white border-gray-200 text-gray-700"
+                  }
+                `}
+              >
+                {d.label}
+              </button>
+            ))}
+          </div>
+          {(customDuration ||
+            !QUICK_DURATIONS.slice(0, -1).some(
+              (d) => d.minutes === duration
+            )) && (
+            <input
+              type="number"
+              value={customDuration}
+              onChange={(e) => handleCustomDuration(e.target.value)}
+              placeholder="Custom minutes..."
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg"
+            />
+          )}
+        </div>
+
+        {/* Optional Note */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Quick Note (Optional)
+          </label>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Any quick thoughts?"
+            rows={3}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg resize-none"
+          />
+        </div>
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 p-6 bg-white border-t">
