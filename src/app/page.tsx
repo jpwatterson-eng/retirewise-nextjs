@@ -56,6 +56,7 @@ export default function HomePage() {
   const [isInitializing, setIsInitializing] = useState(true);
   const [allProjects, setAllProjects] = useState<ProjectItem[]>([]);
   const [isFetching, setIsFetching] = useState(true);
+  const [activeFilter, setActiveFilter] = useState<string | null>(null);
 
   useEffect(() => {
     // No more 'getAuth()' call here - we use the 'auth' from our import
@@ -152,7 +153,7 @@ export default function HomePage() {
     <main className="min-h-screen bg-gray-50 pb-24">
       {/* HEADER SECTION */}
       {/* BRANDED HEADER */}
-      <div className="bg-white px-6 pt-16 pb-8 border-b rounded-b-[2.5rem] shadow-sm">
+      <div className="bg-white px-6 pt-10 pb-8 border-b rounded-b-[2.5rem] shadow-sm">
         <div className="flex items-start justify-between gap-4">
           {/* LEFT SIDE: Identity */}
           <div className="flex-1 min-w-0">
@@ -236,36 +237,64 @@ export default function HomePage() {
             Perspective Balance
           </h2>
           <div className="grid grid-cols-2 gap-4">
-            {Object.entries(PERSPECTIVES).map(([id, config]) => (
-              <div
-                key={id}
-                className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100"
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xl">{config.icon}</span>
-                  <span
-                    className={`text-xs font-bold uppercase ${config.color}`}
-                  >
-                    {config.label}
-                  </span>
-                </div>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-2xl font-bold">
-                    {stats[id].toFixed(1)}
-                  </span>
-                  <span className="text-xs text-gray-400">hrs</span>
-                </div>
-                {/* Visual Bar */}
-                <div className="mt-3 w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full ${config.bar} transition-all duration-1000`}
-                    style={{
-                      width: `${Math.min((stats[id] / 20) * 100, 100)}%`,
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
+            {Object.entries(PERSPECTIVES).map(([id, config]) => {
+              const isActive = activeFilter === id;
+              return (
+                <button
+                  key={id}
+                  onClick={() => setActiveFilter(isActive ? null : id)} // Toggle filter
+                  className={`text-left p-4 rounded-2xl shadow-sm border transition-all duration-300 ${
+                    isActive
+                      ? "border-blue-600 ring-2 ring-blue-50 bg-blue-50/30"
+                      : "bg-white border-gray-100"
+                  }`}
+                >
+                  <div className="flex justify-between items-center mb-2 w-full">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {" "}
+                      {/* min-w-0 allows text to truncate if needed */}
+                      <span className="text-xl flex-shrink-0">
+                        {config.icon}
+                      </span>
+                      <span
+                        className={`text-[10px] sm:text-xs font-bold uppercase truncate ${config.color}`}
+                      >
+                        {config.label}
+                      </span>
+                    </div>
+
+                    {isActive && (
+                      <Link
+                        href={`/perspectives/${id}`}
+                        className="ml-2 p-1.5 bg-white/50 rounded-full shadow-sm flex-shrink-0"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <span className="text-blue-600 font-bold leading-none">
+                          →
+                        </span>
+                      </Link>
+                    )}
+                  </div>
+
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-2xl font-bold text-gray-900">
+                      {stats[id].toFixed(1)}
+                    </span>
+                    <span className="text-xs text-gray-400 font-medium">
+                      hrs
+                    </span>
+                  </div>
+                  <div className="mt-3 w-full bg-gray-100 h-1 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full ${config.bar} transition-all duration-1000`}
+                      style={{
+                        width: `${Math.min((stats[id] / 20) * 100, 100)}%`,
+                      }}
+                    />
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </section>
 
@@ -282,6 +311,10 @@ export default function HomePage() {
           <div className="space-y-3">
             {allProjects
               .filter((p) => p.status === "active")
+              .filter(
+                (p) =>
+                  !activeFilter || p.perspective?.toLowerCase() === activeFilter
+              )
               .map((project) => {
                 // 1. Calculate progress using targetHours (fallback to 20 if empty)
                 const goal = project.targetHours || 20;
@@ -320,6 +353,15 @@ export default function HomePage() {
                   </div>
                 );
               })}
+            {/* Empty state for filter */}
+            {allProjects.filter(
+              (p) => p.perspective?.toLowerCase() === activeFilter
+            ).length === 0 &&
+              activeFilter && (
+                <p className="text-center py-10 text-gray-400 text-sm italic">
+                  No active {activeFilter} projects found.
+                </p>
+              )}
           </div>
         </section>
       </div>
