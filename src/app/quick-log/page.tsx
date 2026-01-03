@@ -324,11 +324,11 @@ export default function QuickLogPage() {
         </div>
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 p-6 bg-white/80 backdrop-blur-md border-t z-50">
+      <div className="fixed bottom-20 left-0 right-0 p-6 bg-white/90 backdrop-blur-md border-t z-40 shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.1)]">
         <button
           onClick={handleLog}
           disabled={!selectedProject || isLogging}
-          className="w-full py-4 rounded-2xl bg-blue-600 text-white font-bold text-lg disabled:bg-gray-200 shadow-xl active:scale-95 transition-transform"
+          className="w-full py-4 rounded-2xl bg-blue-600 text-white font-bold text-lg"
         >
           {isLogging ? "Saving..." : "Log It ✓"}
         </button>

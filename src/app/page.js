@@ -55,7 +55,7 @@ export default function HomePage() {
       setProjects(visibleProjects);
       
       const todayLogs = await unifiedDB.getTodayTimeLogs();
-      const totalToday = todayLogs.reduce((sum, log) => sum + log.duration, 0);
+      const totalToday = todayLogs.reduce((sum, log) => sum + (log.hours || 0), 0);
       setTodayHours(totalToday);
     
       try {
