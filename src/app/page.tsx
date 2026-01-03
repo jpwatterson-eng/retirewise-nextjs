@@ -7,6 +7,7 @@ import { auth, db } from "@/config/firebase.js";
 import { onAuthStateChanged } from "firebase/auth";
 import { collection, query, getDocs, where } from "firebase/firestore";
 import Link from "next/link";
+import { PERSPECTIVES } from "@/config/perspectives";
 
 interface ProjectItem {
   id: string;
@@ -17,38 +18,6 @@ interface ProjectItem {
   targetHours?: number;
   updatedAt?: string;
 }
-
-// 1. REUSE YOUR PERSPECTIVE DEFINITIONS
-const PERSPECTIVES = {
-  builder: {
-    label: "Builder",
-    icon: "🏗️",
-    color: "text-blue-600",
-    bg: "bg-blue-50",
-    bar: "bg-blue-600",
-  },
-  contributor: {
-    label: "Contributor",
-    icon: "🤝",
-    color: "text-green-600",
-    bg: "bg-green-50",
-    bar: "bg-green-600",
-  },
-  integrator: {
-    label: "Integrator",
-    icon: "🧩",
-    color: "text-purple-600",
-    bg: "bg-purple-50",
-    bar: "bg-purple-600",
-  },
-  experimenter: {
-    label: "Experimenter",
-    icon: "🔬",
-    color: "text-orange-600",
-    bg: "bg-orange-50",
-    bar: "bg-orange-600",
-  },
-};
 
 export default function HomePage() {
   const { user: hookUser, loading: hookLoading } = useAuth();
@@ -249,15 +218,13 @@ export default function HomePage() {
                       : "bg-white border-gray-100"
                   }`}
                 >
-                  <div className="flex justify-between items-center mb-2 w-full">
+                  <div className="flex items-center justify-between w-full gap-2 overflow-hidden">
                     <div className="flex items-center gap-2 min-w-0">
-                      {" "}
-                      {/* min-w-0 allows text to truncate if needed */}
                       <span className="text-xl flex-shrink-0">
                         {config.icon}
                       </span>
                       <span
-                        className={`text-[10px] sm:text-xs font-bold uppercase truncate ${config.color}`}
+                        className={`text-[10px] font-black uppercase truncate ${config.color}`}
                       >
                         {config.label}
                       </span>
@@ -266,12 +233,10 @@ export default function HomePage() {
                     {isActive && (
                       <Link
                         href={`/perspectives/${id}`}
-                        className="ml-2 p-1.5 bg-white/50 rounded-full shadow-sm flex-shrink-0"
+                        className="flex-shrink-0 w-6 h-6 flex items-center justify-center bg-white/80 rounded-full shadow-sm"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <span className="text-blue-600 font-bold leading-none">
-                          →
-                        </span>
+                        <span className="text-blue-600 font-bold">→</span>
                       </Link>
                     )}
                   </div>

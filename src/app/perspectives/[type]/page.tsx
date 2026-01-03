@@ -7,33 +7,7 @@ import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import Link from "next/link";
 
-// Reuse your PERSPECTIVES config for colors/icons
-const PERSPECTIVES: any = {
-  builder: {
-    label: "builder",
-    color: "text-amber-600",
-    bg: "bg-amber-50",
-    icon: "🏗️",
-  },
-  contributor: {
-    label: "contributor",
-    color: "text-blue-600",
-    bg: "bg-blue-50",
-    icon: "🤝",
-  },
-  experimenter: {
-    label: "experimenter",
-    color: "text-purple-600",
-    bg: "bg-purple-50",
-    icon: "🔬",
-  },
-  integrator: {
-    label: "integrator",
-    color: "text-emerald-600",
-    bg: "bg-emerald-50",
-    icon: "🧩",
-  },
-};
+import { PERSPECTIVES } from "@/config/perspectives";
 
 export default function PerspectiveDeepDive() {
   const { type } = useParams();
@@ -53,15 +27,15 @@ export default function PerspectiveDeepDive() {
   }, []);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !config) return;
+
     const fetchPerspectiveData = async () => {
       try {
-        // Use the 'label' from our config which should match your Firebase exactly (e.g., "Builder")
-        const targetLabel = config.label;
-
+        // Check for both "Builder" (label) and "builder" (id)
+        // This covers you if some records are capitalized and others aren't
         const q = query(
           collection(db, `users/${user.uid}/projects`),
-          where("perspective", "==", targetLabel)
+          where("perspective", "in", [config.label, config.id])
         );
 
         const snap = await getDocs(q);
@@ -69,18 +43,15 @@ export default function PerspectiveDeepDive() {
           id: d.id,
           ...d.data(),
         }));
-        console.log(
-          `Found ${fetchedProjects.length} projects for ${targetLabel}`
-        ); // Debug log
         setProjects(fetchedProjects);
       } catch (err) {
-        console.error("Deep Dive Fetch Error:", err);
+        console.error("Deep Dive Error:", err);
       } finally {
         setLoading(false);
       }
     };
     fetchPerspectiveData();
-  }, [user, config.label]);
+  }, [user, config]);
 
   const totalHours = projects.reduce(
     (acc, p) => acc + (p.totalHoursLogged || 0),
