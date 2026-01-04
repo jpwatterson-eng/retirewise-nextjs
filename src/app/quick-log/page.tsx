@@ -147,14 +147,22 @@ export default function QuickLogPage() {
       );
 
       const logDuration = duration; // The minutes (30)
-      const logHours = duration / 60; // The decimal (0.5)
+      // const logHours = duration / 60; // The decimal (0.5)
+      // Convert to number regardless of whether it's currently a string or number
+      const durationNum =
+        typeof duration === "string" ? parseFloat(duration) : duration;
+
+      // Logic: If > 8, assume it's minutes (e.g., 30) and convert to hours (0.5)
+      const logHours = durationNum > 8 ? durationNum / 60 : durationNum;
+
+      // Now use logHours in your updateDoc and addDoc calls
 
       // 1. Create the Log Entry (matching your old "week ago" fields)
       await addDoc(timeLogsRef, {
         projectId: selectedProject.id,
         projectName: selectedProject.name,
         perspective: perspective,
-        duration: logDuration, // Your "key one"
+        duration: logHours, // Your "key one"
         hours: logHours, // Added for compatibility
         notes: note || "",
         date: new Date().toISOString().split("T")[0],

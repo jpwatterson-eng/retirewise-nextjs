@@ -17,6 +17,7 @@ export default function PerspectiveDeepDive() {
   const [loading, setLoading] = useState(true);
 
   const config = PERSPECTIVES[type as string] || PERSPECTIVES.builder;
+  const [logs, setLogs] = useState<any[]>([]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
@@ -51,6 +52,30 @@ export default function PerspectiveDeepDive() {
       }
     };
     fetchPerspectiveData();
+  }, [user, config]);
+
+  // Fetch the logs
+  useEffect(() => {
+    if (!user || !config) return;
+
+    const fetchLogs = async () => {
+      try {
+        // Find logs across ALL projects that match this perspective
+        const logsRef = collection(db, `users/${user.uid}/timeLogs`);
+        const q = query(
+          logsRef,
+          where("perspective", "in", [config.label, config.id]),
+          orderBy("date", "desc") // Show newest first
+        );
+
+        const snap = await getDocs(q);
+        setLogs(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      } catch (err) {
+        console.error("Error fetching logs:", err);
+      }
+    };
+
+    fetchLogs();
   }, [user, config]);
 
   const totalHours = projects.reduce(
@@ -127,6 +152,58 @@ export default function PerspectiveDeepDive() {
               </div>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* ACTIVITY FEED */}
+      <div className="p-6">
+        <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">
+          Recent History
+        </h2>
+        <div className="space-y-3">
+          {logs.length > 0 ? (
+            logs.map((log) => (
+              <div
+                key={log.id}
+                className="bg-white p-4 rounded-xl border border-gray-100 flex items-center justify-between"
+              >
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold text-gray-400 uppercase tracking-tighter">
+                    {new Date(log.date).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </span>
+                  <span className="font-bold text-gray-800">
+                    {log.projectName}
+                  </span>
+                  {log.notes && (
+                    <p className="text-xs text-gray-500 mt-1 italic">
+                      "{log.notes}"
+                    </p>
+                  )}
+                </div>
+                <div className="text-right flex flex-col">
+                  <span className={`text-lg font-black ${config.color}`}>
+                    {/* If log.duration is > 8, it's probably an old "minutes" entry */}
+                    {log.duration > 8
+                      ? (log.duration / 60).toFixed(1)
+                      : log.duration.toFixed(1)}
+                    h
+                  </span>
+                  <span className="text-[10px] text-gray-400 font-bold uppercase">
+                    logged
+                  </span>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-center py-10 bg-white rounded-2xl border border-dashed">
+              <p className="text-gray-400 text-sm italic">
+                No logs found for this perspective yet.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </main>
