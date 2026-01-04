@@ -3,7 +3,17 @@
 import { useParams, useRouter } from "next/navigation";
 import { useState, useEffect, useMemo } from "react";
 import { auth, db } from "@/config/firebase.js";
-import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  orderBy,
+  doc,
+  deleteDoc,
+  updateDoc,
+  increment,
+} from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import Link from "next/link";
 
@@ -82,6 +92,59 @@ export default function PerspectiveDeepDive() {
     (acc, p) => acc + (p.totalHoursLogged || 0),
     0
   );
+
+  const deleteLog = async (
+    logId: string,
+    duration: number,
+    projectId: string
+  ) => {
+    if (
+      !window.confirm(
+        "Delete this log entry? It will also update your project total."
+      )
+    )
+      return;
+
+    try {
+      // 1. Calculate the actual hour value to subtract
+      // If it's old data (e.g. 30), we convert to 0.5. If it's new (0.5), we keep it.
+      const hoursToSubtract = duration > 8 ? duration / 60 : duration;
+
+      // 2. Delete the log document
+      await deleteDoc(doc(db, `users/${user.uid}/timeLogs`, logId));
+
+      // 3. Update the Project total (Subtracting the hours)
+      if (projectId) {
+        const projectRef = doc(db, `users/${user.uid}/projects`, projectId);
+        await updateDoc(projectRef, {
+          totalHoursLogged: increment(-hoursToSubtract),
+        });
+      }
+
+      // 4. Update the Local UI State immediately
+      setLogs((prev) => prev.filter((l) => l.id !== logId));
+
+      // Also update the projects state if you are using it for the breakdown list
+      setProjects((prev) =>
+        prev.map((p) =>
+          p.id === projectId
+            ? {
+                ...p,
+                totalHoursLogged: Math.max(
+                  0,
+                  (p.totalHoursLogged || 0) - hoursToSubtract
+                ),
+              }
+            : p
+        )
+      );
+
+      alert("Log deleted and total adjusted.");
+    } catch (err) {
+      console.error("Delete failed:", err);
+      alert("Could not delete. Check console for errors.");
+    }
+  };
 
   if (loading)
     return <div className="p-10 text-center">Loading {config.label}...</div>;
@@ -165,35 +228,36 @@ export default function PerspectiveDeepDive() {
             logs.map((log) => (
               <div
                 key={log.id}
-                className="bg-white p-4 rounded-xl border border-gray-100 flex items-center justify-between"
+                className="bg-white p-4 rounded-xl border border-gray-100 flex items-center justify-between group"
               >
                 <div className="flex flex-col">
-                  <span className="text-xs font-bold text-gray-400 uppercase tracking-tighter">
-                    {new Date(log.date).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })}
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">
+                    {new Date(log.date).toLocaleDateString()}
                   </span>
                   <span className="font-bold text-gray-800">
                     {log.projectName}
                   </span>
-                  {log.notes && (
-                    <p className="text-xs text-gray-500 mt-1 italic">
-                      "{log.notes}"
-                    </p>
-                  )}
                 </div>
-                <div className="text-right flex flex-col">
-                  <span className={`text-lg font-black ${config.color}`}>
-                    {/* If log.duration is > 8, it's probably an old "minutes" entry */}
-                    {log.duration > 8
-                      ? (log.duration / 60).toFixed(1)
-                      : log.duration.toFixed(1)}
-                    h
-                  </span>
-                  <span className="text-[10px] text-gray-400 font-bold uppercase">
-                    logged
-                  </span>
+
+                <div className="flex items-center gap-4">
+                  <div className="text-right">
+                    <span className={`text-lg font-black ${config.color}`}>
+                      {log.duration > 8
+                        ? (log.duration / 60).toFixed(1)
+                        : log.duration.toFixed(1)}
+                      h
+                    </span>
+                  </div>
+
+                  {/* Trash Button */}
+                  <button
+                    onClick={() =>
+                      deleteLog(log.id, log.duration, log.projectId)
+                    }
+                    className="p-2 text-gray-300 hover:text-red-500 transition-colors"
+                  >
+                    🗑️
+                  </button>
                 </div>
               </div>
             ))
