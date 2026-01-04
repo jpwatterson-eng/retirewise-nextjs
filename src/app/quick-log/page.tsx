@@ -18,6 +18,7 @@ import {
 } from "firebase/firestore";
 
 import { getAuth, onAuthStateChanged } from "firebase/auth";
+import Link from "next/link";
 
 // RESTORED ORIGINAL PERSPECTIVES
 const PERSPECTIVES = [
@@ -207,7 +208,20 @@ export default function QuickLogPage() {
     );
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-40">
+    <main className="min-h-screen bg-gray-50">
+      <div className="p-4 flex items-center justify-between bg-white border-b">
+        <Link
+          href="/"
+          className="text-gray-400 hover:text-gray-600 flex items-center gap-1 text-sm font-bold"
+        >
+          ✕ <span className="uppercase tracking-widest">Close</span>
+        </Link>
+        <h2 className="text-xs font-black text-gray-300 uppercase tracking-[0.3em]">
+          Quick Entry
+        </h2>
+        <div className="w-10"></div> {/* Spacer to keep title centered */}
+      </div>
+
       <div className="bg-white border-b px-6 py-4 sticky top-0 z-10">
         <h1 className="text-xl font-bold text-gray-900">Quick Log</h1>
         <p className="text-sm text-gray-500">Fast-track your progress</p>
@@ -346,6 +360,6 @@ export default function QuickLogPage() {
         */}
         <div className="h-safe-bottom" />
       </div>
-    </div>
+    </main>
   );
 }
