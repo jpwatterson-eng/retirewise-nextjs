@@ -108,9 +108,27 @@ export default function HomePage() {
     })[0];
   }, [allProjects]);
 
-  // if (authLoading) {
-  //  return <div className="spinner">Syncing Auth...</div>;
-  // }
+  const weeklyTotal = useMemo(() => {
+    const now = new Date();
+    const day = now.getDay(); // 0 is Sun, 1 is Mon
+    // Calculate difference to get back to Monday
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    const startOfWeek = new Date(now.setDate(diff));
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    // Sum up project hours updated this week
+    return allProjects.reduce((acc, proj) => {
+      const updatedDate = proj.updatedAt
+        ? new Date(proj.updatedAt)
+        : new Date(0);
+      return updatedDate >= startOfWeek
+        ? acc + (proj.totalHoursLogged || 0)
+        : acc;
+    }, 0);
+  }, [allProjects]);
+
+  const WEEKLY_GOAL = 15; // Set your target here
+  const weeklyProgress = Math.min((weeklyTotal / WEEKLY_GOAL) * 100, 100);
 
   // 1. FIRST GUARD: Firebase is still "waking up"
   if (isInitializing) {
@@ -260,6 +278,46 @@ export default function HomePage() {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* WEEKLY MOMENTUM BAR */}
+      <div className="px-6 mb-8">
+        <div className="bg-white p-5 rounded-[2.5rem] shadow-sm border border-gray-100">
+          <div className="flex justify-between items-end mb-4">
+            <div>
+              <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">
+                Weekly Momentum
+              </h3>
+              <div className="flex items-baseline gap-1">
+                <span className="text-3xl font-black text-gray-900 leading-none">
+                  {weeklyTotal.toFixed(1)}
+                </span>
+                <span className="text-gray-400 text-sm font-bold italic">
+                  / {WEEKLY_GOAL}h
+                </span>
+              </div>
+            </div>
+
+            {/* Percentage Badge */}
+            <div className="bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
+              <span className="text-[10px] font-black text-blue-600 uppercase">
+                {Math.round(weeklyProgress)}%
+              </span>
+            </div>
+          </div>
+
+          {/* The Progress Track */}
+          <div className="relative w-full h-4 bg-gray-100 rounded-full overflow-hidden shadow-inner border-2 border-white">
+            <div
+              className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 transition-all duration-1000 ease-out rounded-full"
+              style={{ width: `${weeklyProgress}%` }}
+            />
+          </div>
+
+          <p className="mt-3 text-[10px] text-gray-400 font-bold uppercase tracking-widest text-center">
+            Ends Tonight at Midnight
+          </p>
         </div>
       </div>
 

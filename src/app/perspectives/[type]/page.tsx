@@ -13,6 +13,7 @@ import {
   deleteDoc,
   updateDoc,
   increment,
+  addDoc,
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import Link from "next/link";
@@ -28,6 +29,10 @@ export default function PerspectiveDeepDive() {
 
   const config = PERSPECTIVES[type as string] || PERSPECTIVES.builder;
   const [logs, setLogs] = useState<any[]>([]);
+
+  const [isAdding, setIsAdding] = useState(false);
+  const [selectedProject, setSelectedProject] = useState("");
+  const [hours, setHours] = useState("");
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
@@ -87,6 +92,39 @@ export default function PerspectiveDeepDive() {
 
     fetchLogs();
   }, [user, config]);
+
+  const handleInlineLog = async () => {
+    const durationNum = parseFloat(hours);
+    if (!selectedProject || isNaN(durationNum) || !user) return;
+
+    try {
+      const project = projects.find((p) => p.id === selectedProject);
+
+      // 1. Create the detailed Time Log
+      await addDoc(collection(db, `users/${user.uid}/timeLogs`), {
+        projectId: selectedProject,
+        projectName: project?.name || "Unknown",
+        perspective: config.label,
+        duration: durationNum,
+        date: new Date().toISOString(),
+      });
+
+      // 2. Update the Project summary
+      // CRITICAL: We add updatedAt here so the Weekly Momentum bar knows this happened today!
+      await updateDoc(doc(db, `users/${user.uid}/projects`, selectedProject), {
+        totalHoursLogged: increment(durationNum),
+        updatedAt: new Date().toISOString(),
+      });
+
+      // 3. Reset UI
+      setHours("");
+      setIsAdding(false);
+
+      // Optional: You could trigger a local state refresh here if needed
+    } catch (err) {
+      console.error("Error logging time:", err);
+    }
+  };
 
   const totalHours = projects.reduce(
     (acc, p) => acc + (p.totalHoursLogged || 0),
@@ -187,6 +225,61 @@ export default function PerspectiveDeepDive() {
             </p>
           </div>
         </div>
+      </div>
+
+      <div className="px-6 mt-8">
+        {!isAdding ? (
+          <button
+            onClick={() => setIsAdding(true)}
+            className="w-full py-4 rounded-2xl border-2 border-dashed border-gray-200 text-gray-400 font-bold flex items-center justify-center gap-2 hover:bg-white transition-all shadow-sm"
+          >
+            <span className="text-xl">+</span> Log {config.label} Time
+          </button>
+        ) : (
+          <div className="bg-white p-6 rounded-[2rem] shadow-lg border border-gray-100 animate-in fade-in slide-in-from-top-4">
+            <h3 className="font-black text-gray-900 mb-4 uppercase text-[10px] tracking-widest text-blue-600">
+              Quick Entry
+            </h3>
+
+            <select
+              value={selectedProject}
+              onChange={(e) => setSelectedProject(e.target.value)}
+              className="w-full p-4 bg-gray-50 rounded-2xl border-none text-sm mb-3 outline-none ring-1 ring-gray-100 focus:ring-blue-500"
+            >
+              <option value="">Select Project...</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+
+            <input
+              type="number"
+              step="0.5"
+              placeholder="Hours (e.g. 1.5)"
+              value={hours}
+              onChange={(e) => setHours(e.target.value)}
+              className="w-full p-4 bg-gray-50 rounded-2xl border-none text-sm mb-4 outline-none ring-1 ring-gray-100 focus:ring-blue-500"
+            />
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setIsAdding(false)}
+                className="flex-1 py-3 text-gray-400 font-bold text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleInlineLog}
+                disabled={!selectedProject || !hours}
+                className={`flex-1 py-4 ${config.bar} text-white rounded-xl font-bold text-sm shadow-md disabled:opacity-50 transition-all active:scale-95`}
+              >
+                Save Progress
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* MILESTONE CARD */}

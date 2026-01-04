@@ -46,7 +46,7 @@
       "purpose": "any maskable"
     },
     {
-      "src": "/icon-log.png",
+      "src": "/icons/icon-log.png",
       "sizes": "192x192",
       "type": "image/png"
     }
