@@ -62,7 +62,7 @@ const AuthScreen = () => {
         {/* Logo/Header */}
         <div className="text-center mb-8">
           <div className="w-20 h-20 bg-gradient-to-br from-blue-600 to-purple-600 rounded-3xl mx-auto mb-4 flex items-center justify-center text-white font-bold text-3xl shadow-lg">
-            R
+            <img src="/icon-log.png" alt="RetireWise Logo" className="w-full h-full object-cover" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">RetireWise</h1>
           <p className="text-gray-600">Your intelligent retirement portfolio advisor</p>

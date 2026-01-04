@@ -26,7 +26,7 @@ export default function HomePage() {
   const [allProjects, setAllProjects] = useState<ProjectItem[]>([]);
   const [isFetching, setIsFetching] = useState(true);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
-  const { user, loading: authLoading } = useAuth();
+  const { currentUser, loading: authLoading } = useAuth();
   const [isDataLoading, setIsDataLoading] = useState(true);
 
   useEffect(() => {
@@ -122,6 +122,20 @@ export default function HomePage() {
             Checking Auth...
           </p>
         </div>
+      </div>
+    );
+  }
+
+  // 1. Check if Firebase is still loading the auth state
+  if (authLoading) {
+    return <div className="spinner">Syncing Auth...</div>;
+  }
+
+  // 2. Check if the user is actually logged in
+  if (!currentUser) {
+    return (
+      <div className="login-prompt">
+        <Link href="/login">Log In to Hub</Link>
       </div>
     );
   }
