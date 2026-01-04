@@ -7,7 +7,7 @@ import { auth, db } from "@/config/firebase.js";
 import { onAuthStateChanged } from "firebase/auth";
 import { collection, query, getDocs, where } from "firebase/firestore";
 import Link from "next/link";
-import { PERSPECTIVES } from "@/config/perspectives";
+import { PERSPECTIVES } from "../config/perspectives";
 
 interface ProjectItem {
   id: string;
