@@ -108,20 +108,46 @@ export default function HomePage() {
     })[0];
   }, [allProjects]);
 
-  // const dailyGoal = 4; // Set your target hours here
-  // const progressPercent = Math.min((todayTotal / dailyGoal) * 100, 100);
+  // if (authLoading) {
+  //  return <div className="spinner">Syncing Auth...</div>;
+  // }
 
-  // 3. Updated Shields
-  if (isInitializing)
-    return <div className="p-10 text-center">Checking Hub Access...</div>;
-  if (!activeUser)
+  // 1. FIRST GUARD: Firebase is still "waking up"
+  if (isInitializing) {
     return (
-      <div className="p-10 text-center">Session expired. Please log in.</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-400 text-xs font-bold uppercase tracking-widest tracking-widest">
+            Checking Auth...
+          </p>
+        </div>
+      </div>
     );
+  }
 
-  // THE SAFETY GUARD: If we are still checking auth or fetching projects,
-  // do NOT try to render the Hub. This prevents the "Blank Screen" crash.
-  if (authLoading || isDataLoading) {
+  // 2. SECOND GUARD: We checked, and nobody is logged in
+  if (!activeUser) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6 text-center">
+        <div className="max-w-xs w-full">
+          <h1 className="text-2xl font-black mb-2 italic">RetireWise</h1>
+          <p className="text-gray-500 mb-8 text-sm">
+            Your session has expired or you are not logged in.
+          </p>
+          <Link
+            href="/login"
+            className="block w-full bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-blue-100"
+          >
+            Log In to Hub
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // 3. THIRD GUARD: User is here, but we are fetching their data (The Spinner Killer)
+  if (isDataLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
