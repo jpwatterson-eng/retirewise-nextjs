@@ -4,6 +4,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Mail, Lock, User, AlertCircle } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 const AuthScreen = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -15,6 +16,8 @@ const AuthScreen = () => {
   const [resetSent, setResetSent] = useState(false);
   
   const { signup, login, resetPassword } = useAuth();
+  const router = useRouter();
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -24,11 +27,13 @@ const AuthScreen = () => {
     try {
       if (isLogin) {
         await login(email, password);
+        router.push('/');
       } else {
         if (!displayName.trim()) {
           throw new Error('Please enter your name');
         }
         await signup(email, password, displayName);
+        router.push('/');
       }
     } catch (err) {
       setError(err.message);
@@ -62,7 +67,7 @@ const AuthScreen = () => {
         {/* Logo/Header */}
         <div className="text-center mb-8">
           <div className="w-20 h-20 bg-gradient-to-br from-blue-600 to-purple-600 rounded-3xl mx-auto mb-4 flex items-center justify-center text-white font-bold text-3xl shadow-lg">
-            <img src="/icon-log.png" alt="RetireWise Logo" className="w-full h-full object-cover" />
+            <img src="/icons/icon-log.png" alt="RetireWise Logo" className="w-full h-full object-cover" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">RetireWise</h1>
           <p className="text-gray-600">Your intelligent retirement portfolio advisor</p>
