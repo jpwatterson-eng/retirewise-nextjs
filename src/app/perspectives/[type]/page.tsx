@@ -146,6 +146,14 @@ export default function PerspectiveDeepDive() {
     }
   };
 
+  const nextMilestone = useMemo(() => {
+    const milestones = [10, 25, 50, 100, 250, 500];
+    return milestones.find((m) => m > totalHours) || 1000;
+  }, [totalHours]);
+
+  const remainingHours = nextMilestone - totalHours;
+  const milestoneProgress = Math.min((totalHours / nextMilestone) * 100, 100);
+
   if (loading)
     return <div className="p-10 text-center">Loading {config.label}...</div>;
 
@@ -178,6 +186,42 @@ export default function PerspectiveDeepDive() {
               Total Hours
             </p>
           </div>
+        </div>
+      </div>
+
+      {/* MILESTONE CARD */}
+      <div className="px-6 -mt-6">
+        {" "}
+        {/* Overlaps slightly with the rounded header */}
+        <div className="bg-white p-5 rounded-2xl shadow-lg border border-gray-100">
+          <div className="flex justify-between items-end mb-3">
+            <div>
+              <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">
+                Next Milestone
+              </h2>
+              <p className="text-xl font-bold text-gray-900">
+                {nextMilestone} Hours
+              </p>
+            </div>
+            <div className="text-right">
+              <p className={`text-sm font-bold ${config.color}`}>
+                {remainingHours.toFixed(1)}{" "}
+                <span className="text-gray-400">to go</span>
+              </p>
+            </div>
+          </div>
+
+          {/* Milestone Progress Bar */}
+          <div className="w-full bg-gray-100 h-3 rounded-full overflow-hidden shadow-inner">
+            <div
+              className={`h-full ${config.bar} transition-all duration-1000 ease-out shadow-sm`}
+              style={{ width: `${milestoneProgress}%` }}
+            />
+          </div>
+
+          <p className="mt-2 text-[10px] text-center text-gray-400 font-medium italic">
+            "Progress is the sum of small efforts, repeated day in and day out."
+          </p>
         </div>
       </div>
 
