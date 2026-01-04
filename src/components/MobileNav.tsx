@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 
 const NAV_ITEMS = [
-  { href: "/dashboard", icon: Home, label: "Hub" },
+  { href: "/", icon: Home, label: "Hub" },
   { href: "/quick-log", icon: PlusCircle, label: "Log", highlight: true },
   { href: "/ai-chat", icon: MessageCircle, label: "AI" },
   { href: "/analytics", icon: BarChart3, label: "Stats" },

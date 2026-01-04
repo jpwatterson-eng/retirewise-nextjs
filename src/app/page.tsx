@@ -46,17 +46,13 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    // Safety Timeout: Force-close spinner after 5 seconds if something hangs
-    const timer = setTimeout(() => {
+    if (!activeUser) {
+      // If there is no user, we can't fetch data, so stop the spinner
       setIsDataLoading(false);
-    }, 5000);
-
-    if (!activeUser) return;
-
+      return;
+    }
     const fetchAllData = async () => {
       try {
-        if (!activeUser) return;
-
         const projectsRef = collection(db, `users/${activeUser.uid}/projects`);
         const snapshot = await getDocs(projectsRef);
         const projects = snapshot.docs.map((doc) => ({
@@ -66,6 +62,10 @@ export default function HomePage() {
         setAllProjects(projects);
       } catch (error) {
         console.error("Fetch error:", error);
+      } finally {
+        // THIS IS THE FIX: This tells the app the data is here.
+        // The spinner will now disappear instantly instead of waiting 5 seconds.
+        setIsDataLoading(false);
       }
     };
     fetchAllData();
