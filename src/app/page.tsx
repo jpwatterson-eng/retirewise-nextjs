@@ -7,7 +7,7 @@ import { auth, db } from "@/config/firebase.js";
 import { onAuthStateChanged } from "firebase/auth";
 import { collection, query, getDocs, where } from "firebase/firestore";
 import Link from "next/link";
-import { PERSPECTIVES } from "../config/perspectives";
+import { PERSPECTIVES } from "@/config/perspectives";
 
 interface ProjectItem {
   id: string;
@@ -26,6 +26,8 @@ export default function HomePage() {
   const [allProjects, setAllProjects] = useState<ProjectItem[]>([]);
   const [isFetching, setIsFetching] = useState(true);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const { user, loading: authLoading } = useAuth();
+  const [isDataLoading, setIsDataLoading] = useState(true);
 
   useEffect(() => {
     // No more 'getAuth()' call here - we use the 'auth' from our import
@@ -44,10 +46,17 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
+    // Safety Timeout: Force-close spinner after 5 seconds if something hangs
+    const timer = setTimeout(() => {
+      setIsDataLoading(false);
+    }, 5000);
+
     if (!activeUser) return;
 
     const fetchAllData = async () => {
       try {
+        if (!activeUser) return;
+
         const projectsRef = collection(db, `users/${activeUser.uid}/projects`);
         const snapshot = await getDocs(projectsRef);
         const projects = snapshot.docs.map((doc) => ({
@@ -109,6 +118,21 @@ export default function HomePage() {
     return (
       <div className="p-10 text-center">Session expired. Please log in.</div>
     );
+
+  // THE SAFETY GUARD: If we are still checking auth or fetching projects,
+  // do NOT try to render the Hub. This prevents the "Blank Screen" crash.
+  if (authLoading || isDataLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">
+            Syncing Hub...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const portfolioGoal = 300;
   // Calculate percentage (0 to 100)
