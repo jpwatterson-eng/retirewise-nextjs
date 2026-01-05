@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext.js";
 // Import auth and db directly from your config
 import { auth, db } from "@/config/firebase.js";
@@ -33,6 +33,67 @@ export default function HomePage() {
   const [weeklyTotal, setWeeklyTotal] = useState<number>(0);
   const [currentWeekLogs, setCurrentWeekLogs] = useState<any[]>([]); // You can define a Log interface later
 
+  const fetchAllData = useCallback(async () => {
+    try {
+      if (!activeUser) return;
+
+      // 1. Fetch Projects (for your Perspective Cards)
+      const projectsRef = collection(db, `users/${activeUser.uid}/projects`);
+      const projectSnap = await getDocs(projectsRef);
+      const projects = projectSnap.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as ProjectItem[];
+      setAllProjects(projects);
+
+      // 2. Fetch THIS WEEK'S logs (for the Momentum Bar)
+      const now = new Date();
+      const startOfWeek = new Date(now);
+      const day = now.getDay();
+      const diff = day === 0 ? -6 : 1 - day; // Monday start logic
+
+      startOfWeek.setDate(now.getDate() + diff);
+      startOfWeek.setHours(0, 0, 0, 0);
+
+      const logsRef = collection(db, `users/${activeUser.uid}/timeLogs`);
+      // Query logs where date is >= Monday at Midnight
+      const q = query(logsRef, where("date", ">=", startOfWeek.toISOString()));
+      const logSnap = await getDocs(q);
+
+      // Map the logs to a local array
+      const logs = logSnap.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      // Calculate the sum
+      const weeklySum = logs.reduce(
+        (sum, log: any) => sum + (log.duration || 0),
+        0
+      );
+
+      // Update our new states
+      setWeeklyTotal(weeklySum);
+      setCurrentWeekLogs(logs);
+    } catch (error) {
+      console.error("Fetch error:", error);
+    } finally {
+      setIsDataLoading(false);
+    }
+  }, [activeUser]);
+
+  // 2. The Initial Load Effect
+  useEffect(() => {
+    fetchAllData();
+  }, [fetchAllData]);
+
+  // 3. The "Focus" Listener (Fixes the 1h delay on phone)
+  useEffect(() => {
+    const onFocus = () => fetchAllData();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [fetchAllData]);
+
   useEffect(() => {
     // No more 'getAuth()' call here - we use the 'auth' from our import
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -55,56 +116,7 @@ export default function HomePage() {
       setIsDataLoading(false);
       return;
     }
-    const fetchAllData = async () => {
-      try {
-        if (!activeUser) return;
 
-        // 1. Fetch Projects (for your Perspective Cards)
-        const projectsRef = collection(db, `users/${activeUser.uid}/projects`);
-        const projectSnap = await getDocs(projectsRef);
-        const projects = projectSnap.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as ProjectItem[];
-        setAllProjects(projects);
-
-        // 2. Fetch THIS WEEK'S logs (for the Momentum Bar)
-        const now = new Date();
-        const day = now.getDay();
-        const diff = day === 0 ? -6 : 1 - day; // Monday start logic
-        const startOfWeek = new Date(now);
-        startOfWeek.setDate(now.getDate() + diff);
-        startOfWeek.setHours(0, 0, 0, 0);
-
-        const logsRef = collection(db, `users/${activeUser.uid}/timeLogs`);
-        // Query logs where date is >= Monday at Midnight
-        const q = query(
-          logsRef,
-          where("date", ">=", startOfWeek.toISOString())
-        );
-        const logSnap = await getDocs(q);
-
-        // Map the logs to a local array
-        const logs = logSnap.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-
-        // Calculate the sum
-        const weeklySum = logs.reduce(
-          (sum, log: any) => sum + (log.duration || 0),
-          0
-        );
-
-        // Update our new states
-        setWeeklyTotal(weeklySum);
-        setCurrentWeekLogs(logs);
-      } catch (error) {
-        console.error("Fetch error:", error);
-      } finally {
-        setIsDataLoading(false);
-      }
-    };
     fetchAllData();
   }, [activeUser]);
 
@@ -144,32 +156,6 @@ export default function HomePage() {
       return dateB - dateA;
     })[0];
   }, [allProjects]);
-
-  // change of use so for now comment the useMemo out (10:29 05/01/2025)
-  //  const weeklyTotal = useMemo(() => {
-  //    const now = new Date();
-  //    const startOfWeek = new Date(now);
-  //    const day = now.getDay();
-  //    const diff = day === 0 ? -6 : 1 - day;
-  //    startOfWeek.setDate(now.getDate() + diff);
-  //    startOfWeek.setHours(0, 0, 0, 0);
-  //
-  //    // Instead of allProjects, we need to filter the actual logs
-  //    // If you don't have timeLogs in this state yet, we can use a clever filter on projects:
-  //    return allProjects.reduce((acc, proj) => {
-  //      const lastUpdate = proj.updatedAt
-  //        ? new Date(proj.updatedAt)
-  //        : new Date(0);
-  //
-  //     // Only count if the update happened THIS week
-  //      if (lastUpdate >= startOfWeek) {
-  //        // Logic check: We need to know how much was added THIS week.
-  //        // If we only store "totalHoursLogged", it will always show the lifetime total.
-  //        return acc + (proj.lastSessionDuration || 0);
-  //      }
-  //      return acc;
-  //    }, 0);
-  //  }, [allProjects]);
 
   const pillarSplit = useMemo(() => {
     const split: Record<string, number> = {};
@@ -351,7 +337,7 @@ export default function HomePage() {
       </div>
 
       {/* MONDAY MORNING REVIEW / QUEST START  */}
-      {weeklyTotal === 0 && (
+      {!isDataLoading && weeklyTotal === 0 && (
         <div className="px-6 mb-4 animate-in fade-in slide-in-from-top-2 duration-700">
           <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-4 rounded-2xl shadow-lg shadow-blue-100 border border-blue-400/20">
             <div className="flex items-center gap-3">
