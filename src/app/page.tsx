@@ -17,6 +17,7 @@ interface ProjectItem {
   totalHoursLogged?: number;
   targetHours?: number;
   updatedAt?: string;
+  lastSessionDuration?: number;
 }
 
 export default function HomePage() {
@@ -28,6 +29,9 @@ export default function HomePage() {
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const { currentUser, loading: authLoading } = useAuth();
   const [isDataLoading, setIsDataLoading] = useState(true);
+  // Near your other useState calls
+  const [weeklyTotal, setWeeklyTotal] = useState<number>(0);
+  const [currentWeekLogs, setCurrentWeekLogs] = useState<any[]>([]); // You can define a Log interface later
 
   useEffect(() => {
     // No more 'getAuth()' call here - we use the 'auth' from our import
@@ -53,18 +57,51 @@ export default function HomePage() {
     }
     const fetchAllData = async () => {
       try {
+        if (!activeUser) return;
+
+        // 1. Fetch Projects (for your Perspective Cards)
         const projectsRef = collection(db, `users/${activeUser.uid}/projects`);
-        const snapshot = await getDocs(projectsRef);
-        const projects = snapshot.docs.map((doc) => ({
+        const projectSnap = await getDocs(projectsRef);
+        const projects = projectSnap.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         })) as ProjectItem[];
         setAllProjects(projects);
+
+        // 2. Fetch THIS WEEK'S logs (for the Momentum Bar)
+        const now = new Date();
+        const day = now.getDay();
+        const diff = day === 0 ? -6 : 1 - day; // Monday start logic
+        const startOfWeek = new Date(now);
+        startOfWeek.setDate(now.getDate() + diff);
+        startOfWeek.setHours(0, 0, 0, 0);
+
+        const logsRef = collection(db, `users/${activeUser.uid}/timeLogs`);
+        // Query logs where date is >= Monday at Midnight
+        const q = query(
+          logsRef,
+          where("date", ">=", startOfWeek.toISOString())
+        );
+        const logSnap = await getDocs(q);
+
+        // Map the logs to a local array
+        const logs = logSnap.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+
+        // Calculate the sum
+        const weeklySum = logs.reduce(
+          (sum, log: any) => sum + (log.duration || 0),
+          0
+        );
+
+        // Update our new states
+        setWeeklyTotal(weeklySum);
+        setCurrentWeekLogs(logs);
       } catch (error) {
         console.error("Fetch error:", error);
       } finally {
-        // THIS IS THE FIX: This tells the app the data is here.
-        // The spinner will now disappear instantly instead of waiting 5 seconds.
         setIsDataLoading(false);
       }
     };
@@ -108,27 +145,47 @@ export default function HomePage() {
     })[0];
   }, [allProjects]);
 
-  const weeklyTotal = useMemo(() => {
-    const now = new Date();
-    const day = now.getDay(); // 0 is Sun, 1 is Mon
-    // Calculate difference to get back to Monday
-    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-    const startOfWeek = new Date(now.setDate(diff));
-    startOfWeek.setHours(0, 0, 0, 0);
+  // change of use so for now comment the useMemo out (10:29 05/01/2025)
+  //  const weeklyTotal = useMemo(() => {
+  //    const now = new Date();
+  //    const startOfWeek = new Date(now);
+  //    const day = now.getDay();
+  //    const diff = day === 0 ? -6 : 1 - day;
+  //    startOfWeek.setDate(now.getDate() + diff);
+  //    startOfWeek.setHours(0, 0, 0, 0);
+  //
+  //    // Instead of allProjects, we need to filter the actual logs
+  //    // If you don't have timeLogs in this state yet, we can use a clever filter on projects:
+  //    return allProjects.reduce((acc, proj) => {
+  //      const lastUpdate = proj.updatedAt
+  //        ? new Date(proj.updatedAt)
+  //        : new Date(0);
+  //
+  //     // Only count if the update happened THIS week
+  //      if (lastUpdate >= startOfWeek) {
+  //        // Logic check: We need to know how much was added THIS week.
+  //        // If we only store "totalHoursLogged", it will always show the lifetime total.
+  //        return acc + (proj.lastSessionDuration || 0);
+  //      }
+  //      return acc;
+  //    }, 0);
+  //  }, [allProjects]);
 
-    // Sum up project hours updated this week
-    return allProjects.reduce((acc, proj) => {
-      const updatedDate = proj.updatedAt
-        ? new Date(proj.updatedAt)
-        : new Date(0);
-      return updatedDate >= startOfWeek
-        ? acc + (proj.totalHoursLogged || 0)
-        : acc;
-    }, 0);
-  }, [allProjects]);
+  const pillarSplit = useMemo(() => {
+    const split: Record<string, number> = {};
 
-  const WEEKLY_GOAL = 15; // Set your target here
-  const weeklyProgress = Math.min((weeklyTotal / WEEKLY_GOAL) * 100, 100);
+    // Now iterating over the state variable we populated in fetchAllData
+    currentWeekLogs.forEach((log) => {
+      const pName = log.perspective || "Other";
+      split[pName] = (split[pName] || 0) + (log.duration || 0);
+    });
+
+    return split;
+  }, [currentWeekLogs]); // Watches the state for changes
+
+  const WEEKLY_GOAL = 15;
+  const weeklyProgress =
+    weeklyTotal > 0 ? Math.min((weeklyTotal / WEEKLY_GOAL) * 100, 100) : 0;
 
   // 1. FIRST GUARD: Firebase is still "waking up"
   if (isInitializing) {
@@ -279,7 +336,41 @@ export default function HomePage() {
             </div>
           </div>
         </div>
+
+        <div className="flex justify-between items-center px-6 pt-4 mb-2">
+          <h1 className="text-2xl font-black italic tracking-tighter text-gray-900">
+            Hub
+          </h1>
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+              {weeklyTotal > 0 ? "Momentum Active" : "Ready to Start"}
+            </span>
+          </div>
+        </div>
       </div>
+
+      {/* MONDAY MORNING REVIEW / QUEST START  */}
+      {weeklyTotal === 0 && (
+        <div className="px-6 mb-4 animate-in fade-in slide-in-from-top-2 duration-700">
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-4 rounded-2xl shadow-lg shadow-blue-100 border border-blue-400/20">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center animate-pulse">
+                <span className="text-xl">🚀</span>
+              </div>
+              <div>
+                <h4 className="text-white font-black text-sm uppercase tracking-tight">
+                  New Week, New Quests
+                </h4>
+                <p className="text-blue-100 text-[10px] font-medium leading-tight opacity-90">
+                  Your 15h momentum bar has reset. Which project gets your first
+                  hour?
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* WEEKLY MOMENTUM BAR */}
       <div className="px-6 mb-8">
@@ -316,8 +407,44 @@ export default function HomePage() {
           </div>
 
           <p className="mt-3 text-[10px] text-gray-400 font-bold uppercase tracking-widest text-center">
-            Ends Tonight at Midnight
+            {new Date().getDay() === 0
+              ? "Ends Tonight at Midnight"
+              : "New Week Started"}
           </p>
+        </div>
+
+        {weeklyTotal > 0 && (
+          <p className="mt-4 text-[9px] text-gray-300 font-bold uppercase tracking-[0.15em] text-center border-t border-gray-50 pt-4">
+            Current Week Distribution
+          </p>
+        )}
+
+        {/* PILLAR BREAKDOWN LEGEND */}
+        <div className="flex flex-wrap gap-3 mt-4 pt-4 border-t border-gray-50">
+          {Object.entries(pillarSplit).map(([name, hours]) => {
+            if (hours <= 0) return null;
+
+            // Convert PERSPECTIVES object to an array of its values to find the match
+            const pConfig = Object.values(PERSPECTIVES).find(
+              (p) => p.label === name
+            );
+
+            return (
+              <div key={name} className="flex items-center gap-2">
+                <div
+                  className={`w-2 h-2 rounded-full ${
+                    pConfig?.bar || "bg-gray-300"
+                  }`}
+                />
+                <span className="text-[10px] font-black text-gray-500 uppercase tracking-tighter">
+                  {name}
+                </span>
+                <span className="text-[10px] font-bold text-gray-900">
+                  {hours.toFixed(1)}h
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -384,6 +511,75 @@ export default function HomePage() {
             })}
           </div>
         </section>
+
+        {/* RECENT ACTIVITY FEED */}
+        <div className="px-6 mt-10 mb-20">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">
+              Recent Activity
+            </h3>
+            {currentWeekLogs.length > 0 && (
+              <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">
+                This Week
+              </span>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            {currentWeekLogs.length === 0 ? (
+              <div className="bg-gray-50 border-2 border-dashed border-gray-100 rounded-3xl p-8 text-center">
+                <p className="text-gray-400 text-xs font-medium">
+                  No logs recorded yet this week.
+                </p>
+              </div>
+            ) : (
+              currentWeekLogs
+                .sort(
+                  (a, b) =>
+                    new Date(b.date).getTime() - new Date(a.date).getTime()
+                )
+                .slice(0, 5) // Just the last 5 entries
+                .map((log) => {
+                  const pConfig = Object.values(PERSPECTIVES).find(
+                    (p) => p.label === log.perspective
+                  );
+                  return (
+                    <div
+                      key={log.id}
+                      className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between animate-in fade-in slide-in-from-bottom-2"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`w-2 h-8 rounded-full ${
+                            pConfig?.bar || "bg-gray-200"
+                          }`}
+                        />
+                        <div>
+                          <h4 className="text-sm font-bold text-gray-900 leading-tight">
+                            {log.projectName}
+                          </h4>
+                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tighter">
+                            {log.perspective}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-sm font-black text-gray-900">
+                          {log.duration}h
+                        </span>
+                        <p className="text-[9px] text-gray-400 font-medium">
+                          {new Date(log.date).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })
+            )}
+          </div>
+        </div>
 
         {/* 4. ACTIVE PROJECTS LIST */}
         <section>
