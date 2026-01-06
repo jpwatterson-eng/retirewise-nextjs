@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext.js";
 // Import auth and db directly from your config
 import { auth, db } from "@/config/firebase.js";
 import { onAuthStateChanged } from "firebase/auth";
-import { collection, query, getDocs, where } from "firebase/firestore";
+import { collection, query, getDocs, where, addDoc } from "firebase/firestore";
 import Link from "next/link";
 import { PERSPECTIVES } from "@/config/perspectives";
 
@@ -31,7 +31,10 @@ export default function HomePage() {
   const [isDataLoading, setIsDataLoading] = useState(true);
   const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
   const [weeklyTotal, setWeeklyTotal] = useState<number>(0);
-  const [currentWeekLogs, setCurrentWeekLogs] = useState<any[]>([]); // You can define a Log interface later
+  const [currentWeekLogs, setCurrentWeekLogs] = useState<any[]>([]);
+
+  const [showRetro, setShowRetro] = useState(false);
+  const [retroText, setRetroText] = useState("");
 
   const fetchAllData = useCallback(async () => {
     if (!activeUser) return;
@@ -124,6 +127,12 @@ export default function HomePage() {
 
     fetchAllData();
   }, [activeUser]);
+
+  useEffect(() => {
+    if (weeklyTotal >= 1 && !isDataLoading) {
+      setShowRetro(true);
+    }
+  }, [weeklyTotal, isDataLoading]);
 
   // 2. LOGIC FROM PORTFOLIODASHBOARD
   const stats = useMemo(() => {
@@ -247,6 +256,28 @@ export default function HomePage() {
   // SVG math: The circumference of a circle with r=34 is 2 * π * 34 ≈ 213.6
   const circumference = 2 * Math.PI * 34;
   const offset = circumference - (progressPercent / 100) * circumference;
+
+  const handleCollectBonus = async () => {
+    if (!retroText || !activeUser) return;
+
+    try {
+      await addDoc(collection(db, `users/${activeUser.uid}/timeLogs`), {
+        type: "retrospective",
+        notes: retroText,
+        weeklyTotalHours: weeklyTotal,
+        date: new Date().toISOString().split("T")[0],
+        createdAt: new Date().toISOString(),
+        isBonusClaimed: true,
+      });
+
+      // Visual reward: Hide the retro and perhaps trigger a confetti effect
+      setShowRetro(false);
+      setRetroText("");
+      alert("Bonus Claimed! You've integrated your wins for the week.");
+    } catch (e) {
+      console.error("Error claiming bonus:", e);
+    }
+  };
 
   return (
     <main className="min-h-screen bg-gray-50 pb-24">
@@ -421,6 +452,47 @@ export default function HomePage() {
               <p className="mt-4 text-[9px] text-gray-300 font-bold uppercase tracking-[0.15em] text-center border-t border-gray-50 pt-4">
                 Current Week Distribution
               </p>
+            )}
+
+            {showRetro && (
+              <div className="px-6 mb-8 animate-in zoom-in-95 duration-500">
+                <div className="bg-gradient-to-br from-purple-600 to-indigo-700 rounded-[2.5rem] p-8 shadow-xl shadow-purple-200 relative overflow-hidden">
+                  {/* Decorative background elements */}
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
+
+                  <div className="relative z-10">
+                    <div className="flex items-center gap-2 mb-4">
+                      <span className="bg-yellow-400 text-[10px] font-black px-2 py-1 rounded-md text-purple-900 uppercase">
+                        Level-Up Bonus
+                      </span>
+                      <h3 className="text-white font-black italic tracking-tighter">
+                        Weekly Retrospective
+                      </h3>
+                    </div>
+
+                    <p className="text-purple-100 text-sm mb-6 leading-relaxed">
+                      You've hit **{weeklyTotal}h** of momentum! What’s one
+                      thing you integrated this week that moves the needle for
+                      your future?
+                    </p>
+
+                    <textarea
+                      value={retroText}
+                      onChange={(e) => setRetroText(e.target.value)}
+                      placeholder="Type your reflection..."
+                      className="w-full bg-white/10 border border-white/20 rounded-2xl p-4 text-white placeholder:text-purple-300 text-sm focus:ring-2 focus:ring-yellow-400 outline-none transition-all"
+                      rows={3}
+                    />
+
+                    <button
+                      onClick={handleCollectBonus}
+                      className="w-full mt-4 py-4 bg-yellow-400 text-purple-900 font-black rounded-2xl shadow-lg hover:scale-[1.02] active:scale-95 transition-all uppercase tracking-widest text-xs"
+                    >
+                      Claim Level-Up Bonus ✨
+                    </button>
+                  </div>
+                </div>
+              </div>
             )}
 
             {/* PILLAR BREAKDOWN LEGEND */}
