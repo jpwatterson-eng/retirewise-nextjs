@@ -120,7 +120,17 @@ export default function ProjectsPage() {
         ) : (
           <ProjectsListView projects={filteredProjects} />
         )}
+
       </div>
+              {/* ADD PROJECT BUTTON */}
+<div className="fixed bottom-24 right-6 z-50">
+  <button 
+    onClick={() => router.push('/projects/new')}
+    className="bg-blue-600 text-white w-14 h-14 rounded-full shadow-2xl flex items-center justify-center text-2xl hover:scale-110 active:scale-95 transition-all"
+  >
+    +
+  </button>
+</div>
     </AppLayout>
   );
 }
