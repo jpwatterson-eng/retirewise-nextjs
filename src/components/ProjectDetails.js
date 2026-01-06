@@ -268,54 +268,88 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* Time Logs Section */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-800">Time Logs</h3>
-          <button
-            onClick={() => setShowTimeLog(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+{/* UPGRADED ACTIVITY HISTORY SECTION */}
+<div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
+  <div className="flex items-center justify-between mb-8">
+    <div>
+      <h3 className="text-lg font-bold text-gray-800">Project History</h3>
+      <p className="text-xs text-gray-400 uppercase tracking-widest font-bold">The Journey to Mastery</p>
+    </div>
+    <button
+      onClick={() => setShowTimeLog(true)}
+      className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-md shadow-blue-100 text-sm font-bold"
+    >
+      + Log Time
+    </button>
+  </div>
+
+  {timeLogs.length === 0 ? (
+    <div className="bg-gray-50 border-2 border-dashed border-gray-100 rounded-3xl p-10 text-center">
+      <p className="text-gray-400 text-sm italic">No logs recorded for this journey yet.</p>
+    </div>
+  ) : (
+    <div className="relative border-l-2 border-gray-100 ml-4 pl-8 space-y-10">
+      {timeLogs.map((log) => (
+        <div key={log.id} className="relative">
+          {/* Timeline Connector Dot */}
+          <div className="absolute -left-[41px] top-1 w-4 h-4 rounded-full bg-white border-4 border-blue-600 shadow-sm" />
+          
+          <div className="group">
+            <div className="flex justify-between items-start mb-2">
+              <div className="flex flex-col">
+                <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">
+                  {new Date(log.date).toLocaleDateString(undefined, { 
+                    weekday: 'short', 
+                    month: 'short', 
+                    day: 'numeric' 
+                  })}
+                </span>
+                <span className="text-xs text-gray-400 font-medium">
+                  {/* Fallback to 'Verified' if activity isn't present */}
+                  {log.activity || "Milestone Entry"}
+                </span>
+              </div>
+              <div className="text-right">
+                <span className="text-sm font-black text-gray-900 bg-gray-50 px-3 py-1 rounded-lg border border-gray-100">
+                  {log.duration || log.hours}h
+                </span>
+              </div>
+            </div>
+            
+            {log.notes ? (
+              <div className="bg-gray-50/50 p-4 rounded-2xl border border-gray-100 group-hover:bg-blue-50/30 transition-colors">
+                <p className="text-sm text-gray-600 leading-relaxed italic">
+                  "{log.notes}"
+                </p>
+              </div>
+            ) : (
+              <p className="text-xs text-gray-300 italic pl-1">Steady progress made, no notes recorded.</p>
+            )}
+            
+            {/* Optional interaction footer for future "Edit" feature */}
+            <div className="mt-3 flex items-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity">
+               <button className="text-[9px] font-bold text-gray-400 uppercase tracking-widest hover:text-blue-600">
+                 Edit Entry
+               </button>
+            </div>
+          </div>
+        </div>
+      ))}
+      
+      {/* Visual Indicator of more history */}
+      {timeLogs.length > 5 && (
+        <div className="pt-4 text-center">
+          <button 
+            onClick={() => {/* Potential expand logic */}}
+            className="text-xs font-bold text-gray-400 hover:text-blue-600 transition-colors"
           >
-            Log Time
+            VIEW FULL CHRONICLE (+{timeLogs.length - 5} MORE)
           </button>
         </div>
-
-        {timeLogs.length === 0 ? (
-          <p className="text-gray-500 text-center py-8">No time logs yet</p>
-        ) : (
-          <div className="space-y-3">
-            {timeLogs.slice(0, 5).map((log) => (
-              <div
-                key={log.id}
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-gray-400" />
-                    <span className="text-sm font-medium text-gray-700">
-                      {new Date(log.date).toLocaleDateString()}
-                    </span>
-                  </div>
-                  {log.notes && (
-                    <p className="text-sm text-gray-600 mt-1">{log.notes}</p>
-                  )}
-                </div>
-                <div className="text-right">
-                  <p className="text-lg font-bold text-gray-800">{log.duration}h</p>
-                  {log.activity && (
-                    <p className="text-xs text-gray-500">{log.activity}</p>
-                  )}
-                </div>
-              </div>
-            ))}
-            {timeLogs.length > 5 && (
-              <p className="text-sm text-gray-500 text-center pt-2">
-                +{timeLogs.length - 5} more logs
-              </p>
-            )}
-          </div>
-        )}
-      </div>
+      )}
+    </div>
+  )}
+</div>
 
       {/* Forms */}
       {showForm && (
