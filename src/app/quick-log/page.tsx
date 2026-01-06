@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext.js";
 import { db } from "@/config/firebase.js";
 import {
@@ -20,7 +21,6 @@ import {
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import Link from "next/link";
 
-// RESTORED ORIGINAL PERSPECTIVES
 const PERSPECTIVES = [
   { id: "builder", label: "Builder", icon: "🏗️", color: "bg-blue-600" },
   {
@@ -56,8 +56,8 @@ interface ProjectItem {
 }
 
 export default function QuickLogPage() {
+  const router = useRouter();
   const { user: hookUser, loading: hookLoading } = useAuth();
-
   const [activeUser, setActiveUser] = useState<any>(null);
   const [isInitializing, setIsInitializing] = useState(true);
 
@@ -72,7 +72,6 @@ export default function QuickLogPage() {
   const [isLogging, setIsLogging] = useState<boolean>(false);
   const [showSuccess, setShowSuccess] = useState<boolean>(false);
 
-  // LOAD REAL PROJECTS FROM FIRESTORE
   useEffect(() => {
     const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -117,10 +116,10 @@ export default function QuickLogPage() {
   }, [activeUser]);
 
   // 4. Update your Shields to use isInitializing and activeUser
-  if (isInitializing)
-    return <div className="p-10 text-center">Syncing Hub...</div>;
-  if (!activeUser)
-    return <div className="p-10 text-center">Please log in to RetireWise.</div>;
+  // if (isInitializing)
+  //  return <div className="p-10 text-center">Syncing Hub...</div>;
+  // if (!activeUser)
+  //  return <div className="p-10 text-center">Please log in to RetireWise.</div>;
 
   // AUTO-SELECT PERSPECTIVE WHEN PROJECT IS CHOSEN
   const handleProjectSelect = (p: ProjectItem) => {
@@ -166,6 +165,7 @@ export default function QuickLogPage() {
         duration: logHours, // Your "key one"
         hours: logHours, // Added for compatibility
         notes: note || "",
+        // FIXED: Use standardized YYYY-MM-DD to match Hub searchDate
         date: new Date().toISOString().split("T")[0],
         timestamp: serverTimestamp(),
         createdAt: new Date().toISOString(),
@@ -208,46 +208,36 @@ export default function QuickLogPage() {
     );
 
   return (
-    <main className="min-h-screen bg-gray-50">
-      <div className="p-4 flex items-center justify-between bg-white border-b">
-        <Link
-          href="/"
-          className="text-gray-400 hover:text-gray-600 flex items-center gap-1 text-sm font-bold"
-        >
-          ✕ <span className="uppercase tracking-widest">Close</span>
-        </Link>
-        <h2 className="text-xs font-black text-gray-300 uppercase tracking-[0.3em]">
-          Quick Entry
-        </h2>
-        <div className="w-10"></div> {/* Spacer to keep title centered */}
-      </div>
+    <main className="min-h-screen bg-gray-50 flex flex-col">
+      {/* SCROLLABLE CONTAINER 
+          We use flex-1 and overflow-y-auto so the form scrolls 
+          but the buttons stay fixed at the bottom.
+      */}
+      <div className="flex-1 overflow-y-auto p-6 pb-32">
+        <div className="max-w-md mx-auto space-y-8">
+          <div className="flex items-center justify-between border-b pb-4">
+            <h1 className="text-xl font-bold">Quick Log</h1>
+            <Link
+              href="/"
+              className="text-xs font-black text-gray-400 uppercase tracking-widest"
+            >
+              ✕ Close
+            </Link>
+          </div>
 
-      <div className="bg-white border-b px-6 py-4 sticky top-0 z-10">
-        <h1 className="text-xl font-bold text-gray-900">Quick Log</h1>
-        <p className="text-sm text-gray-500">Fast-track your progress</p>
-      </div>
-
-      <div className="p-6 space-y-8">
-        {/* PROJECT SELECTION FIRST (Better UX) */}
-
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-3">
-            Which Project?
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {allProjects.length === 0 ? (
-              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg w-full">
-                <p className="text-sm text-yellow-700">
-                  ⚠️ No active projects found in Firebase for your account.
-                  <br />
-                  (Check: users/{activeUser?.uid}/projects)
-                </p>
-              </div>
-            ) : (
-              allProjects.map((p) => (
+          {/* PROJECT SELECTION */}
+          <div>
+            <label className="block text-sm font-semibold mb-3">
+              Which Project?
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {allProjects.map((p) => (
                 <button
                   key={p.id}
-                  onClick={() => handleProjectSelect(p)}
+                  onClick={() => {
+                    setSelectedProject(p);
+                    setPerspective(p.perspective);
+                  }}
                   className={`px-4 py-2 rounded-full border-2 transition-all ${
                     selectedProject?.id === p.id
                       ? "bg-blue-600 border-transparent text-white shadow-lg"
@@ -256,56 +246,55 @@ export default function QuickLogPage() {
                 >
                   {p.name}
                 </button>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* PERSPECTIVE (Auto-highlighted) */}
-        {selectedProject && (
-          <div className="animate-in fade-in slide-in-from-top-4">
-            <label className="block text-sm font-semibold text-gray-700 mb-3">
-              Perspective (Auto-filled)
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              {PERSPECTIVES.map((p) => (
-                <div
-                  key={p.id}
-                  className={`p-4 rounded-xl border-2 flex flex-col items-center opacity-50 grayscale transition-all ${
-                    perspective === p.id
-                      ? "opacity-100 grayscale-0 border-blue-600 bg-blue-50"
-                      : "border-transparent bg-gray-100"
-                  }`}
-                >
-                  <span className="text-2xl">{p.icon}</span>
-                  <span className="text-xs font-bold mt-1 uppercase">
-                    {p.label}
-                  </span>
-                </div>
               ))}
             </div>
           </div>
-        )}
 
-        {/* DURATION & NOTES follow... */}
+          {/* PERSPECTIVE (Auto-highlighted) */}
+          {selectedProject && (
+            <div className="animate-in fade-in slide-in-from-top-4">
+              <label className="block text-sm font-semibold text-gray-700 mb-3">
+                Perspective (Auto-filled)
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                {PERSPECTIVES.map((p) => (
+                  <div
+                    key={p.id}
+                    className={`p-4 rounded-xl border-2 flex flex-col items-center opacity-50 grayscale transition-all ${
+                      perspective === p.id
+                        ? "opacity-100 grayscale-0 border-blue-600 bg-blue-50"
+                        : "border-transparent bg-gray-100"
+                    }`}
+                  >
+                    <span className="text-2xl">{p.icon}</span>
+                    <span className="text-xs font-bold mt-1 uppercase">
+                      {p.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Duration
-          </label>
-          <div className="grid grid-cols-5 gap-2 mb-2">
-            {QUICK_DURATIONS.map((d) => (
-              <button
-                key={d.label}
-                onClick={() => {
-                  if (d.minutes) {
-                    setDuration(d.minutes);
-                    setCustomDuration("");
-                  } else {
-                    setCustomDuration("");
-                  }
-                }}
-                className={`
+          {/* DURATION & NOTES follow... */}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Duration
+            </label>
+            <div className="grid grid-cols-5 gap-2 mb-2">
+              {QUICK_DURATIONS.map((d) => (
+                <button
+                  key={d.label}
+                  onClick={() => {
+                    if (d.minutes) {
+                      setDuration(d.minutes);
+                      setCustomDuration("");
+                    } else {
+                      setCustomDuration("");
+                    }
+                  }}
+                  className={`
                   py-3 rounded-lg border-2 font-semibold transition-all text-sm
                   ${
                     duration === d.minutes && d.minutes
@@ -313,52 +302,59 @@ export default function QuickLogPage() {
                       : "bg-white border-gray-200 text-gray-700"
                   }
                 `}
-              >
-                {d.label}
-              </button>
-            ))}
+                >
+                  {d.label}
+                </button>
+              ))}
+            </div>
+            {(customDuration ||
+              !QUICK_DURATIONS.slice(0, -1).some(
+                (d) => d.minutes === duration
+              )) && (
+              <input
+                type="number"
+                value={customDuration}
+                onChange={(e) => handleCustomDuration(e.target.value)}
+                placeholder="Custom minutes..."
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg"
+              />
+            )}
           </div>
-          {(customDuration ||
-            !QUICK_DURATIONS.slice(0, -1).some(
-              (d) => d.minutes === duration
-            )) && (
-            <input
-              type="number"
-              value={customDuration}
-              onChange={(e) => handleCustomDuration(e.target.value)}
-              placeholder="Custom minutes..."
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg"
-            />
-          )}
-        </div>
 
-        {/* Optional Note */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Quick Note (Optional)
-          </label>
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="Any quick thoughts?"
-            rows={3}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg resize-none"
-          />
+          {/* Optional Note */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Quick Note (Optional)
+            </label>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Any quick thoughts?"
+              rows={3}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg resize-none"
+            />
+          </div>
         </div>
       </div>
-
-      <div className="fixed bottom-20 left-0 right-0 p-6 bg-white/90 backdrop-blur-md border-t z-40 shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.1)]">
-        <button
-          onClick={handleLog}
-          disabled={!selectedProject || isLogging}
-          className="w-full py-4 rounded-2xl bg-blue-600 text-white font-bold text-lg"
-        >
-          {isLogging ? "Saving..." : "Log It ✓"}
-        </button>
-        {/* Pro-tip: Adding a safe-area-inset-bottom div here 
-           prevents the button from being too close to the "Home" swipe bar on iPhones.
-        */}
-        <div className="h-safe-bottom" />
+      {/* FIXED BUTTONS - Elevated to stay above Navigation */}
+      <div className="p-6 border-t border-gray-100 bg-white sticky bottom-0 z-[60] shadow-[0_-10px_20px_rgba(0,0,0,0.05)] mb-20 md:mb-0">
+        <div className="max-w-md mx-auto flex gap-3">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="flex-1 py-4 text-gray-400 font-bold hover:bg-gray-50 rounded-2xl transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleLog}
+            disabled={isLogging || !selectedProject}
+            className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg shadow-blue-100 disabled:opacity-50 active:scale-95 transition-transform"
+          >
+            {isLogging ? "Saving..." : "Log it"}
+          </button>
+        </div>
       </div>
     </main>
   );
