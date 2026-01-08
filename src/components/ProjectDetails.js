@@ -9,6 +9,18 @@ import { getPerspective, getPerspectiveColor, getPerspectiveIcon } from '@/utils
 import ProjectForm from './ProjectForm';
 import TimeLogForm from './TimeLogForm';
 
+const MASTERY_TIERS = [
+  { level: 1, minHours: 0, title: "Novice", color: "text-slate-400", bg: "bg-slate-50", icon: "🌱" },
+  { level: 2, minHours: 10, title: "Apprentice", color: "text-blue-500", bg: "bg-blue-50", icon: "🛠️" },
+  { level: 3, minHours: 50, title: "Practitioner", color: "text-purple-500", bg: "bg-purple-50", icon: "📈" },
+  { level: 4, minHours: 100, title: "Expert", color: "text-orange-500", bg: "bg-orange-50", icon: "🔥" },
+  { level: 5, minHours: 250, title: "Master", color: "text-yellow-600", bg: "bg-yellow-50", icon: "👑" },
+];
+
+const getMastery = (hours) => {
+  return [...MASTERY_TIERS].reverse().find(t => hours >= t.minHours) || MASTERY_TIERS[0];
+};
+
 const ProjectDetails = ({ projectId }) => {
   const router = useRouter();
   const [project, setProject] = useState(null);
@@ -18,7 +30,7 @@ const ProjectDetails = ({ projectId }) => {
   const [showTimeLog, setShowTimeLog] = useState(false);
   const [editingTimeLog, setEditingTimeLog] = useState(null);
   const [showForm, setShowForm] = useState(false);
-  
+  const [showAllLogs, setShowAllLogs] = useState(false);
 
 const loadProject = useCallback(async () => {
   try {
@@ -88,6 +100,14 @@ useEffect(() => {
   const perspective = getPerspective(project.perspective);
   const perspectiveColor = getPerspectiveColor(project.perspective);
 
+  const mastery = getMastery(stats?.totalHours || 0);
+  
+  const nextRank = MASTERY_TIERS.find(t => t.level === mastery.level + 1);
+const progressToNext = nextRank 
+  ? ((stats.totalHours - mastery.minHours) / (nextRank.minHours - mastery.minHours)) * 100 
+  : 100;
+  
+  
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 pb-24">
       {/* Header */}
@@ -113,15 +133,40 @@ useEffect(() => {
         </button>
       </div>
 
+
+
 {/* Project Header Card */}
-<div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
+<div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6 relative overflow-hidden">
   {/* Line 1: Icon + Name */}
   <div className="flex items-center gap-3 mb-3">
     {project.icon && (
       <span className="text-3xl flex-shrink-0">{project.icon}</span>
     )}
     <h2 className="text-2xl font-bold text-gray-800">{project.name}</h2>
+    
   </div>
+<div className="absolute top-0 right-0 p-4">
+        <div className={`flex flex-col items-center justify-center w-16 h-16 rounded-2xl ${mastery.bg} border-2 border-white shadow-inner`}>
+          <span className="text-xl">{mastery.icon}</span>
+          <span className="text-[8px] font-black uppercase tracking-tighter text-gray-400">Lvl {mastery.level}</span>
+        </div>
+      </div>
+
+<div className="flex items-center gap-4 mb-4">
+        <div>
+          <h2 className="text-3xl font-black text-gray-900 tracking-tighter">{project.name}</h2>
+          <div className="flex items-center gap-2 mt-1">
+            <span className={`text-[10px] font-black uppercase tracking-[0.15em] ${mastery.color}`}>
+              {mastery.title} Rank
+            </span>
+            <span className="text-gray-300">•</span>
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+              {stats?.totalHours?.toFixed(1)} Total Hours
+            </span>
+          </div>
+        </div>
+      </div>
+
 
   {/* Content Container - Always Left Aligned (no conditional margin) */}
   <div>
@@ -268,6 +313,22 @@ useEffect(() => {
         </div>
       </div>
 
+          {nextRank && (
+  <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm mb-4">
+    <div className="flex justify-between items-end mb-2">
+      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Next Rank: {nextRank.title}</p>
+      <p className="text-xs font-bold text-blue-600">{(nextRank.minHours - stats.totalHours).toFixed(1)}h to go</p>
+    </div>
+    <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden border border-gray-50">
+      <div 
+        className={`h-full transition-all duration-1000 rounded-full ${mastery.color.replace('text', 'bg')}`}
+        style={{ width: `${Math.min(progressToNext, 100)}%` }}
+      />
+    </div>
+  </div>
+)}
+
+
 {/* UPGRADED ACTIVITY HISTORY SECTION */}
 <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
   <div className="flex items-center justify-between mb-8">
@@ -289,8 +350,11 @@ useEffect(() => {
     </div>
   ) : (
     <div className="relative border-l-2 border-gray-100 ml-4 pl-8 space-y-10">
-      {timeLogs.map((log) => (
-        <div key={log.id} className="relative">
+      {timeLogs
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, showAllLogs ? undefined : 5) // undefined means "no limit"
+      .map((log) => (
+        <div key={log.id} className="relative pl-8 pb-8 last:pb-0">
           {/* Timeline Connector Dot */}
           <div className="absolute -left-[41px] top-1 w-4 h-4 rounded-full bg-white border-4 border-blue-600 shadow-sm" />
           
@@ -328,7 +392,13 @@ useEffect(() => {
             
             {/* Optional interaction footer for future "Edit" feature */}
             <div className="mt-3 flex items-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity">
-               <button className="text-[9px] font-bold text-gray-400 uppercase tracking-widest hover:text-blue-600">
+              <button 
+                onClick={() => {
+                setEditingTimeLog(log);
+                setShowTimeLog(true);
+                }}
+                className="text-[9px] font-bold text-gray-400 uppercase tracking-widest hover:text-blue-600"
+              >
                  Edit Entry
                </button>
             </div>
@@ -337,16 +407,16 @@ useEffect(() => {
       ))}
       
       {/* Visual Indicator of more history */}
-      {timeLogs.length > 5 && (
-        <div className="pt-4 text-center">
-          <button 
-            onClick={() => {/* Potential expand logic */}}
-            className="text-xs font-bold text-gray-400 hover:text-blue-600 transition-colors"
-          >
-            VIEW FULL CHRONICLE (+{timeLogs.length - 5} MORE)
-          </button>
-        </div>
-      )}
+{timeLogs.length > 5 && (
+  <div className="pt-6 text-center border-t border-gray-50">
+    <button 
+      onClick={() => setShowAllLogs(!showAllLogs)}
+      className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em]"
+    >
+      {showAllLogs ? "Collapse Chronicle" : `View Full Chronicle (+${timeLogs.length - 5} More)`}
+    </button>
+  </div>
+)}
     </div>
   )}
 </div>
@@ -363,22 +433,23 @@ useEffect(() => {
         />
       )}
 
-      {showTimeLog && (
-        <TimeLogForm
-          projectId={projectId}
-          projectName={project.name}
-          timeLog={editingTimeLog}
-          onClose={() => {
-            setShowTimeLog(false);
-            setEditingTimeLog(null);
-          }}
-          onSaved={() => {
-            setShowTimeLog(false);
-            setEditingTimeLog(null);
-            loadProject();
-          }}
-        />
-      )}
+
+{showTimeLog && (
+  <TimeLogForm
+    projectId={projectId}
+    projectName={project?.name || "Unknown Project"} 
+    log={editingTimeLog} // Corrected prop name to 'log'
+    onClose={() => {
+      setShowTimeLog(false);
+      setEditingTimeLog(null);
+    }}
+    onSaved={() => {
+      setShowTimeLog(false);
+      setEditingTimeLog(null);
+      loadProject();
+    }}
+  />
+)}
     </div>
   );
 };

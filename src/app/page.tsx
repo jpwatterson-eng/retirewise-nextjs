@@ -8,6 +8,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { collection, query, getDocs, where, addDoc } from "firebase/firestore";
 import Link from "next/link";
 import { PERSPECTIVES } from "@/config/perspectives";
+import TimeLogForm from "@/components/TimeLogForm";
 
 interface ProjectItem {
   id: string;
@@ -35,6 +36,9 @@ export default function HomePage() {
 
   const [showRetro, setShowRetro] = useState(false);
   const [retroText, setRetroText] = useState("");
+
+  const [showTimeLog, setShowTimeLog] = useState(false);
+  const [editingTimeLog, setEditingTimeLog] = useState(null);
 
   const fetchAllData = useCallback(async () => {
     if (!activeUser) return;
@@ -129,7 +133,7 @@ export default function HomePage() {
   }, [activeUser]);
 
   useEffect(() => {
-    if (weeklyTotal >= 1 && !isDataLoading) {
+    if (weeklyTotal >= 10 && !isDataLoading) {
       setShowRetro(true);
     }
   }, [weeklyTotal, isDataLoading]);
@@ -471,7 +475,7 @@ export default function HomePage() {
                     </div>
 
                     <p className="text-purple-100 text-sm mb-6 leading-relaxed">
-                      You've hit **{weeklyTotal}h** of momentum! What’s one
+                      You have hit **{weeklyTotal}h** of momentum! What’s one
                       thing you integrated this week that moves the needle for
                       your future?
                     </p>
@@ -616,38 +620,55 @@ export default function HomePage() {
                     )
                     .slice(0, 5) // Just the last 5 entries
                     .map((log) => {
-                      const pConfig = Object.values(PERSPECTIVES).find(
-                        (p) => p.label === log.perspective
+                      // 1. Normalize the perspective key (handles "Builder" -> "builder")
+                      const pId = log.perspective?.toLowerCase() || "";
+
+                      // 2. Direct lookup in the PERSPECTIVES object
+                      const pConfig = PERSPECTIVES[pId];
+                      console.log(
+                        "Log Project:",
+                        log.projectName,
+                        "Raw Perspective:",
+                        log.perspective
                       );
+                      // 3. Time Display Logic
+                      const dateObj = new Date(log.date);
+                      const displayTime = log.date.includes("T")
+                        ? dateObj.toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : "Day Log";
+
+                      // 4. Determine Bar Color (Using the 'bar' property from your config)
+                      // Fallback to bg-gray-200 if no perspective exists or it's not in the config
+                      const barClass = pConfig?.bar || "bg-gray-200";
+                      const labelText = pConfig?.label || "General";
+
                       return (
                         <div
                           key={log.id}
-                          className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between animate-in fade-in slide-in-from-bottom-2"
+                          className="flex items-center gap-4 py-3 border-b border-gray-50 last:border-0"
+                          onClick={() => {
+                            setEditingTimeLog(log); // You'll need to add this state to page.tsx
+                            setShowTimeLog(true);
+                          }}
                         >
-                          <div className="flex items-center gap-3">
-                            <div
-                              className={`w-2 h-8 rounded-full ${
-                                pConfig?.bar || "bg-gray-200"
-                              }`}
-                            />
-                            <div>
-                              <h4 className="text-sm font-bold text-gray-900 leading-tight">
-                                {log.projectName}
-                              </h4>
-                              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tighter">
-                                {log.perspective}
+                          {/* The Vertical Bar */}
+                          <div
+                            className={`w-1.5 h-10 rounded-full transition-colors ${barClass}`}
+                          />
+                          <div className="flex-1">
+                            <div className="flex justify-between items-start">
+                              <p className="text-sm font-bold text-gray-900">
+                                {log.projectName || "General Entry"}
+                              </p>
+                              <p className="text-sm font-black text-gray-900">
+                                {(log.hours || log.duration || 0).toFixed(1)}h
                               </p>
                             </div>
-                          </div>
-                          <div className="text-right">
-                            <span className="text-sm font-black text-gray-900">
-                              {log.duration}h
-                            </span>
-                            <p className="text-[9px] text-gray-400 font-medium">
-                              {new Date(log.date).toLocaleTimeString([], {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
+                            <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">
+                              {displayTime} • {labelText}
                             </p>
                           </div>
                         </div>
@@ -741,6 +762,23 @@ export default function HomePage() {
             </Link>
           </div>
         </>
+      )}
+      {showTimeLog && (
+        <TimeLogForm
+          log={editingTimeLog}
+          projectId={editingTimeLog?.projectId || ""}
+          projectName={editingTimeLog?.projectName || "Legacy/Orphaned Record"}
+          onClose={() => {
+            setShowTimeLog(false);
+            setEditingTimeLog(null);
+          }}
+          onSaved={() => {
+            setShowTimeLog(false);
+            setEditingTimeLog(null);
+            // Change fetchWeekLogs to fetchAllData to match your file
+            fetchAllData();
+          }}
+        />
       )}
     </main>
   );

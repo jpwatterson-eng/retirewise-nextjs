@@ -287,21 +287,27 @@ export default function QuickLogPage() {
                 <button
                   key={d.label}
                   onClick={() => {
-                    if (d.minutes) {
+                    if (d.minutes !== null) {
+                      // User clicked 15m, 30m, 1h, etc.
                       setDuration(d.minutes);
                       setCustomDuration("");
                     } else {
-                      setCustomDuration("");
+                      // User clicked "Custom"
+                      setDuration(0); // Reset numeric duration
+                      setCustomDuration(""); // Ready for new input
                     }
                   }}
                   className={`
-                  py-3 rounded-lg border-2 font-semibold transition-all text-sm
-                  ${
-                    duration === d.minutes && d.minutes
-                      ? "bg-blue-600 border-blue-600 text-white"
-                      : "bg-white border-gray-200 text-gray-700"
-                  }
-                `}
+    py-3 rounded-lg border-2 font-semibold transition-all text-sm
+    ${
+      // Highlight if it's a preset match OR if it's the custom button and no preset matches
+      (d.minutes === null &&
+        !QUICK_DURATIONS.slice(0, -1).some((pd) => pd.minutes === duration)) ||
+      (d.minutes !== null && duration === d.minutes)
+        ? "bg-blue-600 border-blue-600 text-white shadow-md"
+        : "bg-white border-gray-200 text-gray-700"
+    }
+  `}
                 >
                   {d.label}
                 </button>

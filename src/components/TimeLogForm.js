@@ -6,39 +6,42 @@ import { X, Clock, Calendar, Zap, TrendingUp, Smile } from 'lucide-react';
 import * as unifiedDB from '@/db/unifiedDB';
 import { format } from 'date-fns';
 
-const TimeLogForm = ({ log, onClose, onSaved, preselectedProjectId = null }) => {
+const TimeLogForm = ({ log, onClose, onSaved, projectId, projectName }) => {
   const isEdit = !!log;
   
   const [formData, setFormData] = useState({
-    projectId: preselectedProjectId || '',
+    projectId: projectId || '',
     date: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
     duration: '',
     activityType: 'coding',
+    perspective: 'builder', // Default for new logs
     description: '',
-    energyLevel: null,
-    productivityFeeling: null,
-    enjoymentLevel: null,
-    location: '',
+    energyLevel: 3, // Provide a numeric default
+    productivityFeeling: 3,
+    enjoymentLevel: 3,
+    location: '', // Initialized as empty string, not undefined
     notes: ''
   });
   
   const [projects, setProjects] = useState([]);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
+useEffect(() => {
     loadProjects();
     
     if (log) {
       setFormData({
+        // Use logical OR (||) to provide fallbacks for EVERY field
         projectId: log.projectId || '',
         date: log.date ? format(new Date(log.date), "yyyy-MM-dd'T'HH:mm") : format(new Date(), "yyyy-MM-dd'T'HH:mm"),
         duration: log.duration || '',
         activityType: log.activityType || 'coding',
+        perspective: log.perspective || 'builder', // Fallback for legacy logs
         description: log.description || '',
-        energyLevel: log.energyLevel || null,
-        productivityFeeling: log.productivityFeeling || null,
-        enjoymentLevel: log.enjoymentLevel || null,
-        location: log.location || '',
+        energyLevel: log.energyLevel || 3,
+        productivityFeeling: log.productivityFeeling || 3,
+        enjoymentLevel: log.enjoymentLevel || 3,
+        location: log.location || '', // Ensure this is never undefined
         notes: log.notes || ''
       });
     }
@@ -53,17 +56,15 @@ const TimeLogForm = ({ log, onClose, onSaved, preselectedProjectId = null }) => 
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = async (e) => {
+ const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.projectId || !formData.duration) return;
-    
     setSaving(true);
-
     try {
       const logData = {
         ...formData,
         date: new Date(formData.date).toISOString(),
-        duration: parseFloat(formData.duration)
+        duration: parseFloat(formData.duration),
+        projectName: projectName || log?.projectName || "" // Heal legacy data
       };
 
       if (isEdit) {
@@ -71,12 +72,9 @@ const TimeLogForm = ({ log, onClose, onSaved, preselectedProjectId = null }) => 
       } else {
         await unifiedDB.createTimeLog(logData);
       }
-
       onSaved();
-      onClose();
     } catch (error) {
-      console.error('Error saving time log:', error);
-      alert('Failed to save time log');
+      console.error('Error:', error);
     } finally {
       setSaving(false);
     }
@@ -119,24 +117,28 @@ const TimeLogForm = ({ log, onClose, onSaved, preselectedProjectId = null }) => 
   );
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-t-3xl sm:rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-            <Clock className="w-6 h-6" />
-            {isEdit ? 'Edit Time Log' : 'Log Time'}
-          </h2>
-          <button 
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <X className="w-6 h-6 text-gray-600" />
+<div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-[100] p-4">
+      <div className="bg-white rounded-t-[2.5rem] sm:rounded-[2rem] w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+        
+        {/* FIXED HEADER - projectName is now defined */}
+        <div className="px-8 py-6 border-b border-gray-100 flex items-center justify-between bg-white">
+          <div>
+            <h2 className="text-xl font-black text-gray-900 flex items-center gap-2 italic tracking-tighter">
+              <Clock className="w-6 h-6 text-blue-600" />
+              {isEdit ? 'Refine History' : 'Log Momentum'}
+            </h2>
+            <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">
+              Project: {projectName || log?.projectName || "Legacy Record"}
+            </p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
+            <X className="w-6 h-6 text-gray-400" />
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+{/* 2. SCROLLABLE CONTENT AREA */}
+      <div className="flex-1 overflow-y-auto px-8 py-6 space-y-8 bg-white">
+        <form id="time-log-form" onSubmit={handleSubmit} className="space-y-6 pb-4">
           {/* Project Selection */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -274,25 +276,23 @@ const TimeLogForm = ({ log, onClose, onSaved, preselectedProjectId = null }) => 
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
             />
           </div>
-
-          {/* Submit Buttons */}
-          <div className="flex gap-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving || !formData.projectId || !formData.duration}
-              className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {saving ? 'Saving...' : isEdit ? 'Save Changes' : 'Log Time'}
-            </button>
-          </div>
         </form>
+        </div>
+{/* 3. FIXED FOOTER (Buttons are always visible here) */}
+<div className="px-8 py-6 border-t border-gray-100 bg-gray-50 flex gap-3">
+          <button type="button" onClick={onClose} className="flex-1 py-4 text-gray-400 font-bold uppercase tracking-widest text-xs">
+            Cancel
+          </button>
+          <button 
+            form="time-log-form"
+            type="submit" 
+            disabled={saving}
+            className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg"
+          >
+            {saving ? 'Syncing...' : isEdit ? 'Update Entry ✨' : 'Log Effort 🚀'}
+          </button>
+        </div>
+
       </div>
     </div>
   );
