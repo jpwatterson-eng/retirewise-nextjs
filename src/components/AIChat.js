@@ -94,38 +94,38 @@ useEffect(() => {
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
-    const userMessage = {
-      role: 'user',
-      content: input.trim(),
-      timestamp: new Date().toISOString(),
-      contextUsed: null
-    };
+const userMessage = {
+    role: 'user',
+    content: input.trim(),
+    timestamp: new Date().toISOString(),
+  };
 
-    const updatedMessages = [...messages, userMessage];
-    setMessages(updatedMessages);
-    setInput('');
-    setIsLoading(true);
+  // 1. Build the updated list for the UI
+  const updatedMessages = [...messages, userMessage];
+  setMessages(updatedMessages);
+  setInput('');
+  setIsLoading(true);
 
     try {
-      // Build conversation history for Claude (only role and content)
-      const conversationHistory = messages.map(msg => ({
-        role: msg.role,
-        content: msg.content
-      }));
+// Before calling sendMessage, clean the history strictly:
+const cleanedHistory = updatedMessages.map(msg => ({
+  role: msg.role,
+  // Ensure content is ALWAYS a string, never an object or array
+  content: typeof msg.content === 'string' 
+    ? msg.content 
+    : Array.isArray(msg.content) 
+      ? msg.content.map(c => c.text || '').join('\n')
+      : JSON.stringify(msg.content)
+}));
 
-      // Generate portfolio-aware system prompt if context is available
-      let systemPrompt = null;
-      if (portfolioContext) {
-        systemPrompt = generatePortfolioAwarePrompt(portfolioContext);
-        console.log('📊 Using portfolio-aware system prompt');
-      }
+    let systemPrompt = portfolioContext ? generatePortfolioAwarePrompt(portfolioContext) : null;
 
-      // Call AI service with portfolio context
-      const result = await sendMessage(
-        input.trim(), 
-        conversationHistory,
-        systemPrompt // Custom system prompt with portfolio data
-      );
+    // 3. Pass ONLY the cleaned history to the service
+    const result = await sendMessage(
+      input.trim(), // The current message
+      cleanedHistory.slice(0, -1), // Everything EXCEPT the current message
+      systemPrompt
+    );
 
       const assistantMessage = {
         role: 'assistant',

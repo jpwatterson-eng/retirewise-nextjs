@@ -337,21 +337,14 @@ const getProjectDetails = async (projectName) => {
 
 
 // Main chat function
-export const sendMessage = async (userMessage, conversationHistory = [], customSystemPrompt = null) => {
+export const sendMessage = async (userText, conversationHistory = [], customSystemPrompt = null) => {
   try {
-    // Get API key from settings
-  //  const apiKey = await getApiKey();
-  //  
-  //  if (!apiKey) {
-  //    throw new Error('No API key configured. Please add your Claude API key in Settings.');
-  //  }
-    
-    // Build messages array for Claude
+    // Ensure history is clean and userText is a simple string
     const messages = [
       ...conversationHistory,
       {
         role: 'user',
-        content: userMessage
+        content: userText // Use the raw string directly
       }
     ];
     
@@ -389,16 +382,14 @@ const API_ENDPOINT = '/api/chat';
   
 // First API call
 const response = await fetch(API_ENDPOINT, {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json'
-  },
-  body: JSON.stringify({
-    messages: messages,
-    tools: AGENTIC_TOOLS,
-    system: systemPrompt
-  })
-});
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: messages, // Now guaranteed to be string-based content
+        tools: AGENTIC_TOOLS,
+        system: systemPrompt
+      })
+    });
 
 // ADD THESE LOGS:
 console.log('📥 Response status:', response.status);
@@ -475,21 +466,21 @@ const finalResponse = await fetch(API_ENDPOINT, {
       console.log('📝 Final response content:', finalData.content);
       
       // Extract text response - handle both single text and multiple content blocks
-      const textContent = finalData.content
+      const textContent = (finalData.content || [])
         .filter(block => block.type === 'text')
         .map(block => block.text)
         .join('\n');
       
       console.log('✅ Extracted text:', textContent);
       
-      if (!textContent || textContent.trim() === '') {
-        console.error('⚠️ No text content in response!');
-        return {
-          response: 'I analyzed the data but had trouble formatting the response. Let me try again - what would you like to know about your patterns?',
-          toolsUsed: toolUses.map(t => t.name),
-          contextUsed: toolResults.map(r => JSON.parse(r.content))
-        };
+if (!textContent) {
+      console.warn('⚠️ AI returned no text content, checking for tool_use blocks...');
+      // Fallback if the model only sent a tool use without text
+      if (finalData.content?.find(b => b.type === 'tool_use')) {
+        return { response: "Processing your data...", toolsUsed: ['searching'], contextUsed: null };
       }
+      return { response: "I'm analyzing your portfolio, but I couldn't format a text response. Could you try rephrasing?", toolsUsed: [], contextUsed: null };
+    }
       
       return {
         response: textContent,
@@ -498,17 +489,21 @@ const finalResponse = await fetch(API_ENDPOINT, {
       };
     }
     
-    // No tool use - direct response
-    const textContent = data.content
-      .filter(block => block.type === 'text')
-      .map(block => block.text)
-      .join('\n');
-    
-    return {
-      response: textContent,
-      toolsUsed: [],
-      contextUsed: null
-    };
+// No tool use - direct response
+// Bottom of aiService.js
+const textContent = (data?.content || [])
+  .filter(block => block && block.type === 'text')
+  .map(block => block.text)
+  .join('\n');
+
+// FINAL FALLBACK: If content is empty, check if Claude sent a top-level text field
+const finalResponseText = textContent || data?.text || "";
+
+return {
+  response: finalResponseText || "I've connected to the brain, but the response was empty. Try asking: 'Summarize my project ranks.'",
+  toolsUsed: [],
+  contextUsed: null
+};
     
   } catch (error) {
     console.error('❌ AI Service Error:', error);

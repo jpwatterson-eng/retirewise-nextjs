@@ -59,7 +59,11 @@ const Analytics = () => {
     const filteredLogs = timeLogs.filter(log => new Date(log.date) >= startDate);
     const filteredJournal = journalEntries.filter(entry => new Date(entry.date) >= startDate);
     
-    const totalHours = filteredLogs.reduce((sum, log) => sum + log.duration, 0);
+const totalHours = filteredLogs.reduce((sum, log) => {
+    // FIX: Ensure duration is a valid number; fallback to 0 if null/undefined
+    const duration = parseFloat(log.duration) || 0;
+    return sum + duration;
+  }, 0);
     const sessions = filteredLogs.length;
 
     return { filteredLogs, totalHours, sessions, filteredJournal };
@@ -77,7 +81,7 @@ const Analytics = () => {
 
   const projectData = Object.entries(projectHours)
     .map(([name, hours]) => ({
-      name: name.length > 20 ? name.substring(0, 20) + '...' : name,
+      name: name.length > 30 ? name.substring(0, 30) + '...' : name,
       value: parseFloat(hours.toFixed(1))
     }))
     .sort((a, b) => b.value - a.value)
@@ -86,19 +90,24 @@ const Analytics = () => {
   const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
 
   // Activity types
-  const activityHours = {};
-  filteredLogs.forEach(log => {
-    if (log.activity) {
-      activityHours[log.activity] = (activityHours[log.activity] || 0) + log.duration;
-    }
-  });
+const activityHours = {};
+filteredLogs.forEach(log => {
+  // FIX: Look for 'activityType' instead of 'activity'
+  // Use a fallback to 'Uncategorized' if the field is missing
+  const type = log.activityType || log.activity || 'Other'; 
+  
+  const duration = parseFloat(log.duration) || 0;
+  activityHours[type] = (activityHours[type] || 0) + duration;
+});
 
-  const activityData = Object.entries(activityHours)
-    .map(([name, value]) => ({ 
-      name: name.length > 15 ? name.substring(0, 15) + '...' : name, 
-      value: parseFloat(value.toFixed(1)) 
-    }))
-    .sort((a, b) => b.value - a.value);
+// 2. Mapping for the chart
+const activityData = Object.entries(activityHours)
+  .map(([name, value]) => ({ 
+    // Increased character limit for activity names
+    name: name.length > 20 ? name.substring(0, 20) + '...' : name, 
+    value: parseFloat(value.toFixed(1)) 
+  }))
+  .sort((a, b) => b.value - a.value);
 
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
@@ -177,19 +186,28 @@ const Analytics = () => {
         <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Time by Project</h3>
           {projectData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={projectData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} />
-                <YAxis label={{ value: 'Hours', angle: -90, position: 'insideLeft' }} />
-                <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="value" radius={[8, 8, 0, 0]}>
-                  {projectData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <ResponsiveContainer width="100%" height={350}> {/* Increased height slightly */}
+  <BarChart data={projectData} margin={{ bottom: 20 }}> {/* Added margin */}
+    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+    <XAxis 
+      dataKey="name" 
+      angle={-45} 
+      textAnchor="end" 
+      height={100} // Increased from 80 to 100
+      interval={0} // Forces every label to show
+      tick={{ fontSize: 10, fontWeight: 600 }} // Cleaner font
+    />
+    <YAxis 
+      label={{ value: 'Hours', angle: -90, position: 'insideLeft', style: { fontWeight: 600 } }} 
+    />
+    <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f8fafc' }} />
+    <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+      {projectData.map((entry, index) => (
+        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+      ))}
+    </Bar>
+  </BarChart>
+</ResponsiveContainer>
           ) : (
             <div className="flex items-center justify-center h-64 text-gray-400">
               No project data yet

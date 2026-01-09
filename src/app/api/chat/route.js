@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+//         model: 'claude-sonnet-4-20250514',
+
 export async function POST(request) {
   try {
     const body = await request.json();

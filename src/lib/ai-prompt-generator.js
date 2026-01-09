@@ -6,6 +6,7 @@
 
 export function generatePortfolioAwarePrompt(portfolioData) {
   const {
+    projects = [],
     actualBalance = { builder: 25, contributor: 25, integrator: 25, experimenter: 25 },
     targetBalance = { builder: 25, contributor: 25, integrator: 25, experimenter: 25 },
     balanceScore = { score: 100, drift: 0, grade: 'A', status: 'Excellent Balance' },
@@ -14,6 +15,10 @@ export function generatePortfolioAwarePrompt(portfolioData) {
     userName = 'User'
   } = portfolioData;
 
+  const projectMasterySummary = projects.map(p => 
+    `- ${p.name}: ${p.totalHoursLogged || 0}h (Rank: ${p.rank || 'Initiate'})`
+  ).join('\n');
+  
   const perspectives = ['builder', 'contributor', 'integrator', 'experimenter'];
   
   const perspectiveDetails = perspectives
@@ -51,6 +56,11 @@ Active Projects: ${activeProjects}
 
 **Perspective Breakdown:**
 ${perspectiveDetails}
+
+---
+
+**USER'S PROJECT MASTERY:**
+${projectMasterySummary}
 
 ---
 

@@ -312,18 +312,51 @@ const progressToNext = nextRank
           </div>
         </div>
       </div>
+{nextRank && (
+  <div className="bg-white rounded-3xl p-6 border-2 border-gray-100 shadow-xl mb-6 overflow-hidden relative">
+    {/* Subtle background accent to prevent it looking flat */}
+    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-full -mr-16 -mt-16 opacity-50" />
+    
+    <div className="relative z-10">
+      <div className="flex justify-between items-end mb-4">
+        <div>
+          <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">
+            Mastery Journey
+          </p>
+          <h3 className="text-xl font-bold text-gray-900">
+            Next: <span className="text-blue-600">{nextRank.title}</span>
+          </h3>
+        </div>
+        <div className="text-right">
+          <p className="text-lg font-black text-gray-900">
+            {(nextRank.minHours - stats.totalHours).toFixed(1)}h
+          </p>
+          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tighter">Remaining</p>
+        </div>
+      </div>
 
-          {nextRank && (
-  <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm mb-4">
-    <div className="flex justify-between items-end mb-2">
-      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Next Rank: {nextRank.title}</p>
-      <p className="text-xs font-bold text-blue-600">{(nextRank.minHours - stats.totalHours).toFixed(1)}h to go</p>
-    </div>
-    <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden border border-gray-50">
-      <div 
-        className={`h-full transition-all duration-1000 rounded-full ${mastery.color.replace('text', 'bg')}`}
-        style={{ width: `${Math.min(progressToNext, 100)}%` }}
-      />
+      {/* HIGH CONTRAST TRACK: Gray track with Blue bar */}
+      <div className="h-4 w-full bg-gray-100 rounded-full overflow-hidden border border-gray-200 shadow-inner">
+        <div 
+          className="h-full bg-blue-600 rounded-full transition-all duration-1000 ease-out relative"
+          style={{ width: `${Math.min(progressToNext, 100)}%` }}
+        >
+          {/* Animated "shine" effect to make the progress feel alive */}
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+        </div>
+      </div>
+      
+      <div className="mt-4 flex justify-between items-center">
+        <div className="flex items-center gap-2">
+           <span className="text-xs">🎯</span>
+           <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">
+             {mastery.title} Level
+           </p>
+        </div>
+        <div className="px-3 py-1 bg-blue-600 text-white rounded-lg text-[10px] font-black">
+          {Math.min(progressToNext, 100).toFixed(0)}% COMPLETE
+        </div>
+      </div>
     </div>
   </div>
 )}
