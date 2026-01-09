@@ -39,10 +39,10 @@ const PERSPECTIVES = [
 ];
 
 const QUICK_DURATIONS = [
-  { label: "15m", minutes: 15 },
-  { label: "30m", minutes: 30 },
-  { label: "1h", minutes: 60 },
-  { label: "2h", minutes: 120 },
+  { label: "0.25h", hours: 0.25 },
+  { label: "0.5h", hours: 0.5 },
+  { label: "1h", hours: 1.0 },
+  { label: "2h", minutes: 2.0 },
   { label: "Custom", minutes: null },
 ];
 
@@ -66,7 +66,7 @@ export default function QuickLogPage() {
     null
   );
   const [allProjects, setAllProjects] = useState<ProjectItem[]>([]);
-  const [duration, setDuration] = useState<number>(60);
+  const [duration, setDuration] = useState<number>(1.0);
   const [customDuration, setCustomDuration] = useState<string>("");
   const [note, setNote] = useState<string>("");
   const [isLogging, setIsLogging] = useState<boolean>(false);
@@ -129,8 +129,7 @@ export default function QuickLogPage() {
 
   const handleCustomDuration = (value: string) => {
     setCustomDuration(value);
-    const parsed = parseInt(value);
-    // If the user clears the box, default to 0; otherwise use the number
+    const parsed = parseFloat(value); // FIX: Use parseFloat to capture decimals
     setDuration(isNaN(parsed) ? 0 : parsed);
   };
 
@@ -146,30 +145,23 @@ export default function QuickLogPage() {
         selectedProject.id
       );
 
-      const logDuration = duration; // The minutes (30)
-      // const logHours = duration / 60; // The decimal (0.5)
-      // Convert to number regardless of whether it's currently a string or number
+      const logDuration = duration;
       const durationNum =
         typeof duration === "string" ? parseFloat(duration) : duration;
 
-      // Logic: If > 8, assume it's minutes (e.g., 30) and convert to hours (0.5)
-      const logHours = durationNum > 8 ? durationNum / 60 : durationNum;
+      const logHours = Math.round(duration * 100) / 100; // Standardize to 2 decimals
 
-      // Now use logHours in your updateDoc and addDoc calls
-
-      // 1. Create the Log Entry (matching your old "week ago" fields)
       await addDoc(timeLogsRef, {
         projectId: selectedProject.id,
         projectName: selectedProject.name,
-        perspective: perspective,
-        duration: logHours, // Your "key one"
-        hours: logHours, // Added for compatibility
+        perspective: perspective.toLowerCase(), // Normalization fix from testing
+        duration: logHours,
+        hours: logHours,
         notes: note || "",
-        // FIXED: Use standardized YYYY-MM-DD to match Hub searchDate
         date: new Date().toISOString().split("T")[0],
         timestamp: serverTimestamp(),
         createdAt: new Date().toISOString(),
-        source: "quick-log-pwa",
+        source: "quick-log-decimal",
       });
 
       // 2. IMPORTANT: Update the Project's running total
@@ -319,9 +311,10 @@ export default function QuickLogPage() {
               )) && (
               <input
                 type="number"
+                step="0.25"
                 value={customDuration}
                 onChange={(e) => handleCustomDuration(e.target.value)}
-                placeholder="Custom minutes..."
+                placeholder="Enter hours (e.g. 1.25)"
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg"
               />
             )}

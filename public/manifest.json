@@ -66,14 +66,14 @@
       "short_name": "Log",
       "description": "Log time quickly",
       "url": "/quick-log",
-      "icons": [{"src": "/icon-log.png", "sizes": "96x96"}]
+      "icons": [{"src": "/icons/icon-log.png", "sizes": "96x96"}]
     },
     {
       "name": "Journal",
       "short_name": "Journal",
       "description": "Write a journal entry",
       "url": "/journal/new",
-      "icons": [{"src": "/icon-journal.png", "sizes": "96x96"}]
+      "icons": [{"src": "/icons/icon-journal.png", "sizes": "96x96"}]
     }
   ]  
 }

@@ -354,7 +354,7 @@ const progressToNext = nextRank
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, showAllLogs ? undefined : 5) // undefined means "no limit"
       .map((log) => (
-        <div key={log.id} className="relative pl-8 pb-8 last:pb-0">
+        <div key={log.id} className="relative pl-8 pb-3 last:pb-0">
           {/* Timeline Connector Dot */}
           <div className="absolute -left-[41px] top-1 w-4 h-4 rounded-full bg-white border-4 border-blue-600 shadow-sm" />
           
@@ -368,27 +368,23 @@ const progressToNext = nextRank
                     day: 'numeric' 
                   })}
                 </span>
-                <span className="text-xs text-gray-400 font-medium">
+                
+                <p className="text-sm font-black text-gray-900 uppercase tracking-tight">
                   {/* Fallback to 'Verified' if activity isn't present */}
-                  {log.activity || "Milestone Entry"}
-                </span>
+                  {log.activityType || "General Activity"}
+                </p>
+            {log.notes && (
+                 <p className="text-xs text-gray-500 mt-1 italic leading-relaxed max-w-md">
+                  "{log.notes}"
+                </p>          
+            )}
               </div>
               <div className="text-right">
                 <span className="text-sm font-black text-gray-900 bg-gray-50 px-3 py-1 rounded-lg border border-gray-100">
-                  {log.duration || log.hours}h
+                  {log.duration}h
                 </span>
               </div>
             </div>
-            
-            {log.notes ? (
-              <div className="bg-gray-50/50 p-4 rounded-2xl border border-gray-100 group-hover:bg-blue-50/30 transition-colors">
-                <p className="text-sm text-gray-600 leading-relaxed italic">
-                  "{log.notes}"
-                </p>
-              </div>
-            ) : (
-              <p className="text-xs text-gray-300 italic pl-1">Steady progress made, no notes recorded.</p>
-            )}
             
             {/* Optional interaction footer for future "Edit" feature */}
             <div className="mt-3 flex items-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity">

@@ -56,29 +56,86 @@ useEffect(() => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
- const handleSubmit = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      const logData = {
-        ...formData,
-        date: new Date(formData.date).toISOString(),
-        duration: parseFloat(formData.duration),
-        projectName: projectName || log?.projectName || "" // Heal legacy data
-      };
+  const handleDelete = async () => {
+  // 1. Safety Confirmation
+  if (!window.confirm("Are you sure you want to delete this time log? This cannot be undone.")) {
+    return;
+  }
 
-      if (isEdit) {
-        await unifiedDB.updateTimeLog(log.id, logData);
-      } else {
-        await unifiedDB.createTimeLog(logData);
-      }
-      onSaved();
-    } catch (error) {
-      console.error('Error:', error);
-    } finally {
-      setSaving(false);
+  setSaving(true);
+
+  try {
+    // 2. Call the deletion method in unifiedDB
+    await unifiedDB.deleteTimeLog(log.id);
+    
+    // 3. Trigger Hub refresh and close the form
+    onSaved(); 
+    onClose();
+  } catch (error) {
+    console.error("Error deleting log:", error);
+    alert("Failed to delete the log. Please try again.");
+  } finally {
+    setSaving(false);
+  }
+};
+
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  
+  // Basic validation
+  if (!formData.projectId || !formData.duration) return;
+
+  // Find the selected project to extract its current metadata
+  const selectedProject = projects.find(p => p.id === formData.projectId);
+  
+  // Determine the perspective:
+  // 1. Check project metadata 
+  // 2. Normalize to lowercase to match PERSPECTIVES config
+  // 3. Fallback to 'builder' or existing log perspective if missing
+  const normalizedPerspective = (selectedProject?.perspective || log?.perspective || 'builder').toLowerCase();
+
+  setSaving(true);
+
+  try {
+    const logData = {
+      ...formData,
+      date: new Date(formData.date).toISOString(),
+      duration: parseFloat(formData.duration), // Fixes Method B rounding issue
+      // Direct injections to ensure data integrity
+      projectName: selectedProject?.name || "Unknown Project",
+      perspective: normalizedPerspective,
+      source: isEdit ? (log?.source || 'edit') : 'Method C - Project View' 
+    };
+
+    if (isEdit) {
+      await unifiedDB.updateTimeLog(log.id, logData);
+    } else {
+      await unifiedDB.createTimeLog(logData);
     }
-  };
+
+    // Reset form after successful save to prevent "ghosting"
+    setFormData({
+      projectId: preselectedProjectId || '',
+      date: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+      duration: '',
+      activityType: 'coding',
+      description: '',
+      energyLevel: null,
+      productivityFeeling: null,
+      enjoymentLevel: null,
+      location: '',
+      notes: ''
+    });
+
+    onSaved();
+    onClose();
+  } catch (error) {
+    console.error('Error saving time log:', error);
+    alert('Failed to save time log');
+  } finally {
+    setSaving(false);
+  }
+};
 
   const activityTypes = [
     { value: 'coding', label: 'Coding' },
@@ -136,7 +193,7 @@ useEffect(() => {
           </button>
         </div>
 
-{/* 2. SCROLLABLE CONTENT AREA */}
+      {/* 2. SCROLLABLE CONTENT AREA */}
       <div className="flex-1 overflow-y-auto px-8 py-6 space-y-8 bg-white">
         <form id="time-log-form" onSubmit={handleSubmit} className="space-y-6 pb-4">
           {/* Project Selection */}
@@ -278,8 +335,10 @@ useEffect(() => {
           </div>
         </form>
         </div>
-{/* 3. FIXED FOOTER (Buttons are always visible here) */}
-<div className="px-8 py-6 border-t border-gray-100 bg-gray-50 flex gap-3">
+        {/* 3. FIXED FOOTER (Buttons are always visible here) */}
+        <div className="flex flex-col gap-3">
+        <div className="flex gap-3">
+        {/*<div className="px-8 py-6 border-t border-gray-100 bg-gray-50 flex gap-3"> */}
           <button type="button" onClick={onClose} className="flex-1 py-4 text-gray-400 font-bold uppercase tracking-widest text-xs">
             Cancel
           </button>
@@ -292,7 +351,18 @@ useEffect(() => {
             {saving ? 'Syncing...' : isEdit ? 'Update Entry ✨' : 'Log Effort 🚀'}
           </button>
         </div>
-
+        {/* NEW: Delete Button for existing records */}
+        {isEdit && (
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={saving}
+            className="w-full py-3 text-red-500 text-xs font-black uppercase tracking-widest hover:bg-red-50 rounded-xl transition-colors mt-2"
+          >
+            Delete Record
+          </button>
+        )}
+      </div>
       </div>
     </div>
   );

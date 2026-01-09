@@ -133,10 +133,18 @@ export default function HomePage() {
   }, [activeUser]);
 
   useEffect(() => {
-    if (weeklyTotal >= 10 && !isDataLoading) {
+    // 1. Check if a retrospective has already been logged this week
+    const hasClaimedThisWeek = currentWeekLogs.some(
+      (log) => log.type === "retrospective"
+    );
+
+    // 2. Only show if goal is met AND it hasn't been claimed yet
+    if (weeklyTotal >= 10 && !isDataLoading && !hasClaimedThisWeek) {
       setShowRetro(true);
+    } else {
+      setShowRetro(false);
     }
-  }, [weeklyTotal, isDataLoading]);
+  }, [weeklyTotal, isDataLoading, currentWeekLogs]);
 
   // 2. LOGIC FROM PORTFOLIODASHBOARD
   const stats = useMemo(() => {
@@ -178,14 +186,14 @@ export default function HomePage() {
   const pillarSplit = useMemo(() => {
     const split: Record<string, number> = {};
 
-    // Now iterating over the state variable we populated in fetchAllData
     currentWeekLogs.forEach((log) => {
-      const pName = log.perspective || "Other";
+      // FIX: Force to lowercase so "Builder" and "builder" sum together
+      const pName = (log.perspective || "other").toLowerCase();
       split[pName] = (split[pName] || 0) + (log.duration || 0);
     });
 
     return split;
-  }, [currentWeekLogs]); // Watches the state for changes
+  }, [currentWeekLogs]);
 
   const WEEKLY_GOAL = 15;
   const weeklyProgress =
@@ -274,9 +282,13 @@ export default function HomePage() {
         isBonusClaimed: true,
       });
 
-      // Visual reward: Hide the retro and perhaps trigger a confetti effect
+      // FIX: Hide the UI and clear text immediately
       setShowRetro(false);
       setRetroText("");
+
+      // FIX: Trigger a full data refresh to sync the Hub
+      await fetchAllData();
+
       alert("Bonus Claimed! You've integrated your wins for the week.");
     } catch (e) {
       console.error("Error claiming bonus:", e);
@@ -504,10 +516,8 @@ export default function HomePage() {
               {Object.entries(pillarSplit).map(([name, hours]) => {
                 if (hours <= 0) return null;
 
-                // Convert PERSPECTIVES object to an array of its values to find the match
-                const pConfig = Object.values(PERSPECTIVES).find(
-                  (p) => p.label === name
-                );
+                // FIX: Direct lookup using the normalized lowercase name
+                const pConfig = PERSPECTIVES[name];
 
                 return (
                   <div key={name} className="flex items-center gap-2">
@@ -517,7 +527,7 @@ export default function HomePage() {
                       }`}
                     />
                     <span className="text-[10px] font-black text-gray-500 uppercase tracking-tighter">
-                      {name}
+                      {pConfig?.label || name}
                     </span>
                     <span className="text-[10px] font-bold text-gray-900">
                       {hours.toFixed(1)}h
