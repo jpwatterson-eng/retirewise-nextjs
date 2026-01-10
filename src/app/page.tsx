@@ -308,7 +308,7 @@ export default function HomePage() {
       ) : (
         <>
           {/* HEADER SECTION */}
-          <div className="bg-white px-6 pt-4 pb-4 border-b rounded-b-[2.5rem] shadow-sm">
+          <div className="bg-white px-6 pt-4 pb-4 border-b rounded-[2.5rem] shadow-sm">
             <div className="flex items-center justify-between px-6 pt-1 mb-2">
               {/* LEFT SIDE: Identity */}
               <div className="flex-1 min-w-0">
