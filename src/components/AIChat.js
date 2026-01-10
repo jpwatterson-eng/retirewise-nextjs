@@ -207,7 +207,9 @@ return (
     {/* 2. Messages Area (The only part that scrolls) 
         We use flex-1 to take up all available middle space.
     */}
-    <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+    <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar"
+      style={{ overscrollBehaviorY: 'contain' }}
+    >
       {messages.map((msg, idx) => (
         <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
           <div className={`max-w-[85%] rounded-2xl p-3 ${msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-white border shadow-sm'}`}>
@@ -215,6 +217,18 @@ return (
           </div>
         </div>
       ))}
+
+      {isLoading && (
+        <div className="flex justify-start">
+          <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
+            <div className="flex items-center gap-3 text-gray-500">
+              <Loader className="w-4 h-4 animate-spin text-blue-600" />
+              <span className="text-sm font-medium italic">Thinking...</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div ref={messagesEndRef} />
     </div>
 
