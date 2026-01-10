@@ -295,6 +295,7 @@ export default function HomePage() {
     }
   };
 
+  // may want pt-4 in main //
   return (
     <main className="min-h-screen bg-gray-50 pb-24">
       {/* If we aren't done loading the first time, show NOTHING or a Full Screen Spinner */}
@@ -307,33 +308,17 @@ export default function HomePage() {
       ) : (
         <>
           {/* HEADER SECTION */}
-          {/* BRANDED HEADER */}
-          <div className="bg-white px-6 pt-10 pb-8 border-b rounded-b-[2.5rem] shadow-sm">
-            <div className="flex items-center justify-between px-6 pt-4 mb-2">
+          <div className="bg-white px-6 pt-4 pb-4 border-b rounded-b-[2.5rem] shadow-sm">
+            <div className="flex items-center justify-between px-6 pt-1 mb-2">
               {/* LEFT SIDE: Identity */}
               <div className="flex-1 min-w-0">
-                {" "}
                 {/* min-w-0 prevents text from breaking layout */}
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 rounded-xl overflow-hidden shadow-sm border border-gray-100 flex-shrink-0">
-                    <img
-                      src="/icons/icon-192x192.png"
-                      alt="Logo"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <h1 className="text-xl font-black tracking-tighter text-gray-900 leading-tight">
-                    RETIREWISE{" "}
-                    <span className="text-blue-600 uppercase">Hub</span>
-                  </h1>
+                <div className="flex items-center gap-2">
+                  <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                    {weeklyTotal > 0 ? "Momentum Active" : "Ready to Start"}
+                  </span>
                 </div>
-                <p className="text-gray-500 text-xs font-bold uppercase tracking-widest ml-1">
-                  {new Date().toLocaleDateString("en-US", {
-                    weekday: "short",
-                    month: "short",
-                    day: "numeric",
-                  })}
-                </p>
                 {/* LAST ACTIVITY SNIPPET - Moved here to prevent overlap with ring */}
                 {lastActivity && (
                   <div className="mt-4 px-3 py-1.5 bg-gray-50 rounded-lg inline-block border border-gray-100">
@@ -346,7 +331,6 @@ export default function HomePage() {
                   </div>
                 )}
               </div>
-
               {/* RIGHT SIDE: Progress Ring */}
               <div className="flex-shrink-0 flex flex-col items-center">
                 <div className="relative flex items-center justify-center w-20 h-20">
@@ -385,10 +369,14 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="flex justify-between items-center px-6 pt-4 mb-2">
-              <h1 className="text-2xl font-black italic tracking-tighter text-gray-900">
-                Hub
-              </h1>
+            <div className="flex justify-between items-center px-6 pt-1 mb-2">
+              <p className="text-gray-500 text-xs font-bold uppercase tracking-widest ml-1">
+                {new Date().toLocaleDateString("en-US", {
+                  weekday: "short",
+                  month: "short",
+                  day: "numeric",
+                })}
+              </p>
               <div className="flex items-center gap-2">
                 <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
