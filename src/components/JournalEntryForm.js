@@ -3,6 +3,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Save, Calendar, Tag, BookOpen, Smile, Meh, Frown } from 'lucide-react';
+import { Sparkles, Loader2 } from 'lucide-react';
+import { suggestJournalPerspectives } from '@/services/insightService';
 import * as unifiedDB from '@/db/unifiedDB';
 
 const JournalEntryForm = ({ entry, onClose, onSaved }) => {
@@ -19,6 +21,7 @@ const JournalEntryForm = ({ entry, onClose, onSaved }) => {
   const [tagInput, setTagInput] = useState('');
   const [projects, setProjects] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   useEffect(() => {
     loadProjects();
@@ -94,6 +97,22 @@ const JournalEntryForm = ({ entry, onClose, onSaved }) => {
     });
   };
 
+  const handleAISuggestTags = async () => {
+  if (!formData.content) return;
+  
+  setIsAnalyzing(true);
+  try {
+    const suggestions = await suggestJournalPerspectives(formData.content);
+    
+    // Merge suggestions with existing tags, avoiding duplicates
+    const newTags = [...new Set([...formData.tags, ...suggestions])];
+    setFormData({ ...formData, tags: newTags });
+  } catch (error) {
+    console.error("Failed to get AI tags", error);
+  } finally {
+    setIsAnalyzing(false);
+  }
+};
   const entryTypes = [
     { value: 'general', label: 'General', emoji: '📝' },
     { value: 'reflection', label: 'Reflection', emoji: '💭' },
@@ -195,10 +214,31 @@ const JournalEntryForm = ({ entry, onClose, onSaved }) => {
           </div>
 
           {/* Tags */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Tags
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+            {/*<label className="block text-sm font-medium text-gray-700 mb-2"> */}
+            <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+              <Tag className="w-3 h-3" />
+              Tags & Perspectives
             </label>
+
+            {/* NEW: AI Suggest Button */}
+            <button
+              type="button"
+              onClick={handleAISuggestTags}
+              disabled={isAnalyzing || !formData.content}
+              className="text-xs flex items-center gap-1.5 px-2 py-1 bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100 transition-colors disabled:opacity-50"
+            >
+              {isAnalyzing ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+              <Sparkles className="w-3 h-3" />
+              )}
+              AI Suggest
+            </button>
+
+            </div>
+{/* original div */}
             <div className="flex gap-2 mb-2">
               <input
                 type="text"
@@ -216,24 +256,31 @@ const JournalEntryForm = ({ entry, onClose, onSaved }) => {
                 Add
               </button>
             </div>
+            {/* end orig div */}
+
+            
+
             {formData.tags.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {formData.tags.map((tag, idx) => (
-                  <span
-                    key={idx}
-                    className="flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm"
-                  >
-                    <Tag className="w-3 h-3" />
-                    {tag}
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveTag(tag)}
-                      className="ml-1 hover:text-blue-900"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                ))}
+              <div className="flex flex-wrap gap-2 mb-2">
+                {formData.tags.map((tag, index) => ( // Added 'index' here
+  <span
+    key={index} 
+    className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${
+      ["BUILDER", "EXPERIMENTER", "CONTRIBUTOR", "INTEGRATOR"].includes(tag.toUpperCase())
+        ? 'bg-blue-600 text-white'
+        : 'bg-gray-100 text-gray-700'
+    }`}
+  >
+    {tag}
+    <button
+      type="button"
+      onClick={() => removeTag(tag)}
+      className="hover:text-red-200 transition-colors"
+    >
+      <X className="w-3 h-3" />
+    </button>
+  </span>
+))}
               </div>
             )}
           </div>
@@ -304,7 +351,7 @@ const JournalEntryForm = ({ entry, onClose, onSaved }) => {
         </form>
 
         {/* Footer */}
-        <div className="p-6 border-t border-gray-200 flex gap-3">
+        <div className="p-6 pb-20 border-t border-gray-200 flex gap-3 bg-white sticky bottom-0">
           <button
             type="button"
             onClick={onClose}

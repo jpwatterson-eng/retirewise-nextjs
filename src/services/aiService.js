@@ -339,15 +339,33 @@ const getProjectDetails = async (projectName) => {
 // Main chat function
 export const sendMessage = async (userText, conversationHistory = [], customSystemPrompt = null) => {
   try {
-    // Ensure history is clean and userText is a simple string
+    //
+    // Change to make structured as required by the Journal integrator step
+    //
+    // const messages = [
+    //  ...conversationHistory,
+    //  {
+    //    role: 'user',
+    //    content: userText // Use the raw string directly
+    //  }
+    //];
+    
+    // FIX: Normalize the content. 
+    // If userText is a string, Claude is happy. 
+    // If it's an array from insightService, we ensure it's structured correctly.
+    const formattedContent = typeof userText === 'string' 
+      ? userText 
+      : userText; // If it's already an array of objects, pass it as is
+
     const messages = [
       ...conversationHistory,
       {
         role: 'user',
-        content: userText // Use the raw string directly
+        content: formattedContent
       }
     ];
-    
+
+
     // System prompt that defines the AI's role
     const systemPrompt = customSystemPrompt || `You are RetireWise AI, an intelligent advisor helping a retired person manage their portfolio of projects and activities.
 
