@@ -2,12 +2,14 @@
 // COMPLETE VERSION: Firestore-only + Portfolio Context
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Send, Brain, Loader } from 'lucide-react';
 import { sendMessage } from '@/services/aiService';
 import { createConversation, getConversations, updateConversation } from '@/db/unifiedDB';
 import { usePortfolioContext } from '@/hooks/usePortfolioContext';
 import { generatePortfolioAwarePrompt } from '@/lib/ai-prompt-generator';
+import { auth, db } from '@/config/firebase'; 
+import { doc, setDoc } from 'firebase/firestore';
 
 const AIChat = () => {
   const [messages, setMessages] = useState([]);
@@ -19,84 +21,17 @@ const AIChat = () => {
   // Portfolio context for AI
   const { portfolioContext, loading: contextLoading } = usePortfolioContext();
 
-  useEffect(() => {
-    loadOrCreateConversation();
-  }, []);
+  const hasProcessedPrompt = useRef(false);
 
-useEffect(() => {
-  const timer = setTimeout(() => {
-    scrollToBottom();
-  }, 100);
-  return () => clearTimeout(timer);
-}, [messages]);
+const handleSend = async (overrideText = null) => {
+  // Use the override if provided, otherwise fall back to the input state
+  const textToSend = (typeof overrideText === 'string' ? overrideText : input).trim();
+  
+  if (!textToSend || isLoading) return;
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  const loadOrCreateConversation = async () => {
-    try {
-      // Get most recent conversation from Firestore
-      const conversations = await getConversations();
-
-      if (conversations.length > 0) {
-        const conv = conversations[0];
-        setCurrentConversationId(conv.id);
-        setMessages(conv.messages || []);
-
-        // Force scroll to bottom after loading conversation
-        setTimeout(() => {
-          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-        }, 150);
-
-      } else {
-        // Create initial conversation with welcome message
-        const welcomeMessage = {
-          role: 'assistant',
-          content: "Hello! I'm your RetireWise AI advisor. I can help you think through your retirement activities, analyze patterns in your projects, and provide insights based on your portfolio data.\n\nTry asking me things like:\n• How balanced is my portfolio right now?\n• What should I focus on today?\n• Analyze my recent activity patterns\n• Which projects need attention?",
-          timestamp: new Date().toISOString(),
-          contextUsed: null
-        };
-
-        const conversationData = {
-          title: 'New Conversation',
-          messages: [welcomeMessage],
-          conversationType: 'general'
-        };
-
-        const conversationId = await createConversation(conversationData);
-        setCurrentConversationId(conversationId);
-        setMessages([welcomeMessage]);
-        
-        setTimeout(() => {
-          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-        }, 150);
-
-      }
-    } catch (error) {
-      console.error('Error loading conversation:', error);
-    }
-  };
-
-  const saveConversation = async (updatedMessages) => {
-    if (!currentConversationId) return;
-
-    try {
-      await updateConversation(currentConversationId, {
-        messages: updatedMessages,
-        messageCount: updatedMessages.length
-      });
-    } catch (error) {
-      console.error('Error saving conversation:', error);
-    }
-  };
-
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
-
-const userMessage = {
+  const userMessage = {
     role: 'user',
-    content: input.trim(),
+    content: textToSend,
     timestamp: new Date().toISOString(),
   };
 
@@ -107,24 +42,24 @@ const userMessage = {
   setIsLoading(true);
 
     try {
-// Before calling sendMessage, clean the history strictly:
-const cleanedHistory = updatedMessages.map(msg => ({
-  role: msg.role,
-  // Ensure content is ALWAYS a string, never an object or array
-  content: typeof msg.content === 'string' 
-    ? msg.content 
-    : Array.isArray(msg.content) 
-      ? msg.content.map(c => c.text || '').join('\n')
-      : JSON.stringify(msg.content)
-}));
+// 🔥 THE DEEP CLEAN: Filter out empty messages and ensure content is a string
+    const cleanedHistory = updatedMessages
+      .filter(msg => msg.content && String(msg.content).trim() !== "") // Remove empty messages
+      .map(msg => ({
+        role: msg.role,
+        // If content is an object (like a tool result), stringify it
+        content: typeof msg.content === 'string' 
+          ? msg.content 
+          : JSON.stringify(msg.content)
+      }));
+    // let systemPrompt = portfolioContext ? generatePortfolioAwarePrompt(portfolioContext) : null;
 
-    let systemPrompt = portfolioContext ? generatePortfolioAwarePrompt(portfolioContext) : null;
+console.log(`🧹 History cleaned. Sending ${cleanedHistory.length} valid messages.`);
 
-    // 3. Pass ONLY the cleaned history to the service
     const result = await sendMessage(
-      input.trim(), // The current message
-      cleanedHistory.slice(0, -1), // Everything EXCEPT the current message
-      systemPrompt
+      textToSend,
+      cleanedHistory.slice(-15, -1), // Send history except the message we just added
+      portfolioContext ? generatePortfolioAwarePrompt(portfolioContext) : null
     );
 
       const assistantMessage = {
@@ -162,6 +97,122 @@ const cleanedHistory = updatedMessages.map(msg => ({
       setIsLoading(false);
     }
   };
+
+
+  useEffect(() => {
+    loadOrCreateConversation();
+  }, []);
+
+useEffect(() => {
+  const timer = setTimeout(() => {
+    scrollToBottom();
+  }, 100);
+  return () => clearTimeout(timer);
+}, [messages]);
+
+// The Updated Auto-Trigger Effect
+
+useEffect(() => {
+  // Only run if we have a conversation ID, are not loading context, 
+  // and haven't processed a prompt this session
+  if (!currentConversationId || contextLoading || hasProcessedPrompt.current) return;
+
+  const params = new URLSearchParams(window.location.search);
+  const promptText = params.get('prompt');
+
+  if (promptText) {
+    console.log("🚀 Found prompt in URL, initiating synthesis...");
+    hasProcessedPrompt.current = true; // Mark as handled immediately
+    
+    // Clear URL parameters for a clean experience
+    window.history.replaceState({}, document.title, window.location.pathname);
+    
+    // Set the visible input so the user sees the request
+    setInput(promptText);
+    
+    // Execute the send with a direct argument to bypass state lag
+    const timer = setTimeout(() => {
+      handleSend(promptText); 
+    }, 1000); // 1-second delay for stability
+
+    return () => clearTimeout(timer);
+  }
+}, [currentConversationId, contextLoading]);
+
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const loadOrCreateConversation = async () => {
+    try {
+      // Get most recent conversation from Firestore
+      const conversations = await getConversations();
+
+      if (conversations.length > 0) {
+        const conv = conversations[0];
+        setCurrentConversationId(conv.id);
+        setMessages(conv.messages || []);
+
+        // Force scroll to bottom after loading conversation
+        setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+      }, 300);
+
+      } else {
+        // Create initial conversation with welcome message
+        const welcomeMessage = {
+          role: 'assistant',
+          content: "Hello! I'm your RetireWise AI advisor. I can help you think through your retirement activities, analyze patterns in your projects, and provide insights based on your portfolio data.\n\nTry asking me things like:\n• How balanced is my portfolio right now?\n• What should I focus on today?\n• Analyze my recent activity patterns\n• Which projects need attention?",
+          timestamp: new Date().toISOString(),
+          contextUsed: null
+        };
+
+        const conversationData = {
+          title: 'New Conversation',
+          messages: [welcomeMessage],
+          conversationType: 'general'
+        };
+
+        const conversationId = await createConversation(conversationData);
+        setCurrentConversationId(conversationId);
+        setMessages([welcomeMessage]);
+        
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 150);
+
+      }
+    } catch (error) {
+      console.error('Error loading conversation:', error);
+    }
+  };
+
+const saveConversation = useCallback(async (msgs) => {
+  const user = auth.currentUser; // Use Firebase auth directly
+  
+  if (!user || !currentConversationId) {
+    console.warn("⚠️ Save postponed: No User or Conversation ID ready.");
+    return;
+  }
+
+  try {
+    const chatRef = doc(db, `users/${user.uid}/conversations`, currentConversationId);
+    await setDoc(chatRef, {
+      messages: msgs,
+      updatedAt: new Date().toISOString(),
+      lastPreview: msgs[msgs.length - 1].content.substring(0, 100) + "..."
+    }, { merge: true });
+    
+    console.log("✅ Synthesis archived to history.");
+  } catch (e) {
+    console.error("❌ Error saving chat:", e);
+  }
+}, [currentConversationId]); // Only depend on the ID
+
+
+
+
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {

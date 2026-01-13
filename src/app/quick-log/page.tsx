@@ -42,8 +42,8 @@ const QUICK_DURATIONS = [
   { label: "0.25h", hours: 0.25 },
   { label: "0.5h", hours: 0.5 },
   { label: "1h", hours: 1.0 },
-  { label: "2h", minutes: 2.0 },
-  { label: "Custom", minutes: null },
+  { label: "2h", hours: 2.0 },
+  { label: "Custom", hours: null },
 ];
 
 // Updated types to match your documentation
@@ -145,23 +145,21 @@ export default function QuickLogPage() {
         selectedProject.id
       );
 
-      const logDuration = duration;
-      const durationNum =
-        typeof duration === "string" ? parseFloat(duration) : duration;
-
-      const logHours = Math.round(duration * 100) / 100; // Standardize to 2 decimals
+      const logHours = Math.round(duration * 100) / 100;
 
       await addDoc(timeLogsRef, {
         projectId: selectedProject.id,
         projectName: selectedProject.name,
-        perspective: perspective.toLowerCase(), // Normalization fix from testing
+        perspective: perspective.toLowerCase(),
         duration: logHours,
-        hours: logHours,
+        // hours: logHours, // Note: You can keep this for legacy, but 'duration' is the standard
         notes: note || "",
-        date: new Date().toISOString().split("T")[0],
+        date: new Date().toISOString(), // Change from .split('T')[0] to full ISO string for Phase 6 consistency
         timestamp: serverTimestamp(),
         createdAt: new Date().toISOString(),
+        sourceApp: "retirewise", // 🔥 ADDED: Identity Tag
         source: "quick-log-decimal",
+        updatedAt: new Date().toISOString(), // 🔥 ADDED: Consistency
       });
 
       // 2. IMPORTANT: Update the Project's running total
@@ -278,10 +276,11 @@ export default function QuickLogPage() {
               {QUICK_DURATIONS.map((d) => (
                 <button
                   key={d.label}
+                  type="button"
                   onClick={() => {
-                    if (d.minutes !== null) {
-                      // User clicked 15m, 30m, 1h, etc.
-                      setDuration(d.minutes);
+                    if (d.hours !== null) {
+                      // User clicked 0.25h, 0.5h, 1h, etc.
+                      setDuration(d.hours);
                       setCustomDuration("");
                     } else {
                       // User clicked "Custom"
@@ -293,9 +292,9 @@ export default function QuickLogPage() {
     py-3 rounded-lg border-2 font-semibold transition-all text-sm
     ${
       // Highlight if it's a preset match OR if it's the custom button and no preset matches
-      (d.minutes === null &&
-        !QUICK_DURATIONS.slice(0, -1).some((pd) => pd.minutes === duration)) ||
-      (d.minutes !== null && duration === d.minutes)
+      (d.hours === null &&
+        !QUICK_DURATIONS.slice(0, -1).some((pd) => pd.hours === duration)) ||
+      (d.hours !== null && duration === d.hours)
         ? "bg-blue-600 border-blue-600 text-white shadow-md"
         : "bg-white border-gray-200 text-gray-700"
     }
@@ -307,7 +306,7 @@ export default function QuickLogPage() {
             </div>
             {(customDuration ||
               !QUICK_DURATIONS.slice(0, -1).some(
-                (d) => d.minutes === duration
+                (d) => d.hours === duration
               )) && (
               <input
                 type="number"

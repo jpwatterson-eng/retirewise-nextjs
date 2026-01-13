@@ -93,6 +93,7 @@ export default function PerspectiveDeepDive() {
     fetchLogs();
   }, [user, config]);
 
+  // Inside PerspectiveDeepDive component
   const handleInlineLog = async () => {
     const durationNum = parseFloat(hours);
     if (!selectedProject || isNaN(durationNum) || !user) return;
@@ -100,27 +101,24 @@ export default function PerspectiveDeepDive() {
     try {
       const project = projects.find((p) => p.id === selectedProject);
 
-      // 1. Create the detailed Time Log
       await addDoc(collection(db, `users/${user.uid}/timeLogs`), {
         projectId: selectedProject,
         projectName: project?.name || "Unknown",
-        perspective: config.label,
+        perspective: config.id.toLowerCase(), // Normalizing (e.g., 'Builder' -> 'builder')
         duration: durationNum,
         date: new Date().toISOString(),
+        sourceApp: "retirewise", // 🔥 Identity Tag
+        source: "Method B - Perspective Deep Dive",
+        updatedAt: new Date().toISOString(),
       });
 
-      // 2. Update the Project summary
-      // CRITICAL: We add updatedAt here so the Weekly Momentum bar knows this happened today!
       await updateDoc(doc(db, `users/${user.uid}/projects`, selectedProject), {
         totalHoursLogged: increment(durationNum),
         updatedAt: new Date().toISOString(),
       });
 
-      // 3. Reset UI
       setHours("");
       setIsAdding(false);
-
-      // Optional: You could trigger a local state refresh here if needed
     } catch (err) {
       console.error("Error logging time:", err);
     }

@@ -1,6 +1,6 @@
 // src/services/aiService.js
 
-import { getAllProjects, getAllTimeLogs, getAllJournalEntries } from '@/db/unifiedDB';
+import { getAllProjects, getAllTimeLogs, getAllJournalEntries,saveWeeklyGoals,getActiveWeeklyGoals } from '@/db/unifiedDB';
 import { subDays, format } from 'date-fns';
 
 // Get API key from environment variable (production) or settings (development)
@@ -34,20 +34,19 @@ const AGENTIC_TOOLS = [
   },
   {
     name: 'search_journal',
-    description: 'Search through journal entries for topics, keywords, themes, or get recent entries. Can search by content, titles, tags, or entry types. If user asks what they\'ve been reflecting on, thinking about, or writing about, use this tool.',
+    description: 'Search journal entries. Can filter by perspective (BUILDER, EXPERIMENTER, CONTRIBUTOR, INTEGRATOR) or general query.',
     input_schema: {
-      type: 'object',
-      properties: {
-        query: {
-          type: 'string',
-          description: 'Search query, keywords, or topic. Can be broad (e.g., "reflecting") or specific (e.g., "RetireWise milestone"). Leave empty to get most recent entries.'
-        },
-        limit: {
-          type: 'number',
-          description: 'Maximum number of results to return (default: 5)'
-        }
-      }
+    type: 'object',
+    properties: {
+      query: { type: 'string', description: 'Keyword or topic' },
+      perspective: { 
+        type: 'string', 
+        enum: ['BUILDER', 'EXPERIMENTER', 'CONTRIBUTOR', 'INTEGRATOR'],
+        description: 'Filter by core perspective'
+      },
+      limit: { type: 'number', default: 5 }
     }
+  }
   },
   {
     name: 'analyze_patterns',
@@ -70,6 +69,36 @@ const AGENTIC_TOOLS = [
       },
       required: ['projectName']
     }
+  },
+  {
+    name: 'get_weekly_synthesis',
+    description: 'Get a comprehensive summary of the last 7 days, including all time logs and journal entries categorized by perspective.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        lookbackDays: { type: 'number', default: 7 }
+      }
+    }
+  },
+  {
+    name: 'set_weekly_targets',
+    description: 'Set target hour goals for specific perspectives for the coming week.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        targets: {
+          type: 'array',
+          items: {
+            type: 'object',
+              properties: {
+                perspective: { enum: ['BUILDER', 'EXPERIMENTER', 'CONTRIBUTOR', 'INTEGRATOR'] },
+                targetHours: { type: 'number' },
+                focusNote: { type: 'string', description: 'What specifically should be focused on' }
+              }
+          }
+        }
+      }
+    }
   }
 ];
 
@@ -89,13 +118,86 @@ const executeToolFunction = async (toolName, toolInput) => {
     
     case 'get_project_details':
       return await getProjectDetails(toolInput.projectName);
-    
+
+    case 'get_weekly_synthesis':
+      return await getWeeklySynthesis(toolInput.lookbackDays);
+
+    case 'set_weekly_targets':
+      return await handleSetWeeklyTargets(toolInput.targets);
+
     default:
       return { error: 'Unknown tool' };
   }
 };
 
 // Tool implementations
+const handleSetWeeklyTargets = async (targets) => {
+  try {
+    const goalDoc = {
+      targets: targets.map(t => ({
+        perspective: t.perspective.toUpperCase(),
+        targetHours: t.targetHours,
+        focusNote: t.focusNote || ""
+      })),
+      status: 'committed'
+    };
+    
+    await saveWeeklyGoals(goalDoc);
+    
+    return { 
+      status: 'success', 
+      message: `Targets locked for ${targets.length} perspectives. I will monitor these throughout the week.` 
+    };
+  } catch (error) {
+    return { status: 'error', message: error.message };
+  }
+};
+
+const getWeeklySynthesis = async (days = 7) => {
+  const sinceDate = subDays(new Date(), days);
+  
+  // 1. Get Data
+  const allLogs = await getAllTimeLogs();
+  const allJournals = await getAllJournalEntries();
+  const projects = await getAllProjects();
+
+  // 2. Filter for the last week
+  const weeklyLogs = allLogs.filter(log => new Date(log.date) > sinceDate);
+  const weeklyJournals = allJournals.filter(entry => new Date(entry.date) > sinceDate);
+
+  // 3. Aggregate Logs by Perspective
+  const stats = {
+    BUILDER: 0, EXPERIMENTER: 0, CONTRIBUTOR: 0, INTEGRATOR: 0
+  };
+
+  weeklyLogs.forEach(log => {
+    const project = projects.find(p => p.id === log.projectId);
+    const perspective = project?.perspective?.toUpperCase() || 'INTEGRATOR';
+    if (stats[perspective] !== undefined) stats[perspective] += log.duration;
+  });
+
+  // NEW: Pull the targets to compare
+  const goals = await getActiveWeeklyGoals();
+
+  // 4. Map Journal Highlights to Perspectives
+  const journalHighlights = weeklyJournals.map(entry => ({
+    date: format(new Date(entry.date), 'MMM d'),
+    content: entry.content.substring(0, 200),
+    perspectives: entry.tags?.filter(t => 
+      ["BUILDER", "EXPERIMENTER", "CONTRIBUTOR", "INTEGRATOR"].includes(t.toUpperCase())
+    ) || []
+  }));
+
+  return {
+    period: `Last ${days} days`,
+    timeStats: stats,
+    targets: goals?.targets || [],
+    totalHours: Object.values(stats).reduce((a, b) => a + b, 0),
+    journalSummary: journalHighlights,
+    projectCount: new Set(weeklyLogs.map(l => l.projectId)).size
+  };
+};
+
 
 const getRecentActivity = async (days) => {
   const sinceDate = subDays(new Date(), days);
@@ -138,7 +240,7 @@ const getRecentActivity = async (days) => {
   };
 };
 
-const searchJournal = async (query, limit) => {
+const searchJournal = async (query, limit, perspective) => {
   // Use unifiedDB instead of Dexie
   const allEntries = await getAllJournalEntries();
   
@@ -171,12 +273,23 @@ const searchJournal = async (query, limit) => {
     let score = 0;
     const contentLower = entry.content.toLowerCase();
     const titleLower = (entry.title || '').toLowerCase();
-    
-    // Exact phrase match (highest priority)
+    const entryTags = (entry.tags || []).map(t => t.toUpperCase());
+
+    // 1. Perspective Match (Highest Priority)
+    if (perspective && entryTags.includes(perspective.toUpperCase())) {
+      score += 20; // Massive boost for matching the AI-generated tag
+    }
+
+    // Exact phrase match (was highest priority)
     if (contentLower.includes(queryLower) || titleLower.includes(queryLower)) {
       score += 10;
     }
     
+    // Check if the query itself is a perspective name
+    if (["BUILDER", "EXPERIMENTER", "CONTRIBUTOR", "INTEGRATOR"].includes(query.toUpperCase())) {
+       if (entryTags.includes(query.toUpperCase())) score += 15;
+    }
+
     // Individual keyword matches
     keywords.forEach(keyword => {
       if (contentLower.includes(keyword)) score += 3;
@@ -223,7 +336,8 @@ const searchJournal = async (query, limit) => {
   }
   
   return {
-    query,
+    query: query || 'perspective search',
+    perspectiveFiltered: perspective || 'none',
     resultsFound: matches.length,
     entries: matches.map(entry => ({
       date: format(new Date(entry.date), 'MMM d, yyyy'),
@@ -339,16 +453,6 @@ const getProjectDetails = async (projectName) => {
 // Main chat function
 export const sendMessage = async (userText, conversationHistory = [], customSystemPrompt = null) => {
   try {
-    //
-    // Change to make structured as required by the Journal integrator step
-    //
-    // const messages = [
-    //  ...conversationHistory,
-    //  {
-    //    role: 'user',
-    //    content: userText // Use the raw string directly
-    //  }
-    //];
     
     // FIX: Normalize the content. 
     // If userText is a string, Claude is happy. 
@@ -385,7 +489,6 @@ Keep responses conversational and concise (2-3 paragraphs max unless asked for m
     // First API call - may result in tool use
     console.log('🤖 Calling Claude API...');
 
-    // ADD THIS:
     if (customSystemPrompt) {
       console.log('📊 Using portfolio-aware system prompt');
     }
@@ -396,10 +499,10 @@ Keep responses conversational and concise (2-3 paragraphs max unless asked for m
 //  ? 'http://localhost:3001/api/chat'  // Your local proxy
 //  : '/api/chat';  // Vercel serverless function
 
-const API_ENDPOINT = '/api/chat';
+    const API_ENDPOINT = '/api/chat';
   
 // First API call
-const response = await fetch(API_ENDPOINT, {
+    const response = await fetch(API_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -409,11 +512,7 @@ const response = await fetch(API_ENDPOINT, {
       })
     });
 
-// ADD THESE LOGS:
-console.log('📥 Response status:', response.status);
-// const data = await response.json();
-// console.log('📥 Response data:', data);
-
+    console.log('📥 Response status:', response.status);
 
     if (!response.ok) {
       const errorData = await response.json();
@@ -456,21 +555,21 @@ console.log('📥 Response status:', response.status);
       // Second API call with tool results
       console.log('🤖 Calling Claude API with tool results...');
 
-// Second API call (similar change)
-const finalResponse = await fetch(API_ENDPOINT, {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json'
-  },
-  body: JSON.stringify({
-    messages: [
-      ...messages,
-      assistantMessage,
-      userMessage
-    ],
-    system: systemPrompt
-  })
-});
+    // Second API call (similar change)
+      const finalResponse = await fetch(API_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+        messages: [
+          ...messages,
+          assistantMessage,
+          userMessage
+        ],
+        system: systemPrompt
+        })
+      });
 
 
       if (!finalResponse.ok) {

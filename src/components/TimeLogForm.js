@@ -81,30 +81,30 @@ useEffect(() => {
 
 const handleSubmit = async (e) => {
   e.preventDefault();
-  
-  // Basic validation
-  if (!formData.projectId || !formData.duration) return;
 
-  // Find the selected project to extract its current metadata
+  if (!formData.projectId || !formData.duration) {
+    console.error("Missing required fields:", { 
+      project: formData.projectId, 
+      duration: formData.duration 
+    });
+    return;
+  }
+
   const selectedProject = projects.find(p => p.id === formData.projectId);
-  
-  // Determine the perspective:
-  // 1. Check project metadata 
-  // 2. Normalize to lowercase to match PERSPECTIVES config
-  // 3. Fallback to 'builder' or existing log perspective if missing
-  const normalizedPerspective = (selectedProject?.perspective || log?.perspective || 'builder').toLowerCase();
+  const normalizedPerspective = (selectedProject?.perspective || formData.perspective || 'builder').toLowerCase();
 
   setSaving(true);
-
-  try {
+try {
     const logData = {
       ...formData,
       date: new Date(formData.date).toISOString(),
-      duration: parseFloat(formData.duration), // Fixes Method B rounding issue
-      // Direct injections to ensure data integrity
+      duration: parseFloat(formData.duration),
       projectName: selectedProject?.name || "Unknown Project",
       perspective: normalizedPerspective,
-      source: isEdit ? (log?.source || 'edit') : 'Method C - Project View' 
+      sourceApp: 'retirewise', // 🔥 THIS WAS MISSING
+      // If we are passing a custom source from the parent, use it, else default
+      source: formData.source || (isEdit ? 'edit' : 'Method C - Full Form'),
+      updatedAt: new Date().toISOString()
     };
 
     if (isEdit) {
@@ -114,19 +114,18 @@ const handleSubmit = async (e) => {
     }
 
     // Reset form after successful save to prevent "ghosting"
-    setFormData({
-      projectId: preselectedProjectId || '',
+setFormData({
+      projectId: projectId || '', 
       date: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
       duration: '',
       activityType: 'coding',
       description: '',
-      energyLevel: null,
-      productivityFeeling: null,
-      enjoymentLevel: null,
+      energyLevel: 3,
+      productivityFeeling: 3,
+      enjoymentLevel: 3,
       location: '',
       notes: ''
     });
-
     onSaved();
     onClose();
   } catch (error) {

@@ -1,9 +1,46 @@
 // src/db/unifiedDB.js
-// Simplified - Firestore only (no Dexie)
+
 import * as firestoreDB from '@/db/firestore/firestoreDB';
+import { db, auth } from '@/config/firebase';
+
+import { 
+  getFirestore, 
+  collection, 
+  addDoc, 
+  getDocs, 
+  query, 
+  where, 
+  doc,
+  setDoc,
+  getDoc 
+} from 'firebase/firestore';
+
+import { format, startOfWeek } from 'date-fns';
+
+/**
+ * Retrieves goals for the current week
+ */
+export const getActiveWeeklyGoals = async () => {
+  const userId = requireAuth();
+  if (!userId) return null; // Exit gracefully if user isn't set yet
+  // Ensure 'format' and 'startOfWeek' are imported from 'date-fns'
+  const weekId = format(startOfWeek(new Date()), 'yyyy-MM-dd');
+  
+  try {
+    const docRef = doc(db, 'users', userId, 'weekly_goals', weekId);
+    const docSnap = await getDoc(docRef);
+    
+    if (docSnap.exists()) {
+      return docSnap.data();
+    }
+    return null;
+  } catch (error) {
+    console.error("Error fetching weekly goals:", error);
+    return null;
+  }
+};
 
 let currentUserId = null;
-
 // Set the current user ID (call this when user logs in)
 export const setCurrentUser = (userId) => {
   currentUserId = userId;
@@ -12,10 +49,7 @@ export const setCurrentUser = (userId) => {
 
 // Helper to ensure user is authenticated
 const requireAuth = () => {
-  if (!currentUserId) {
-    throw new Error('User must be authenticated. Please log in.');
-  }
-  return currentUserId;
+  return currentUserId; // Just return the ID or null; let the calling function handle the logic
 };
 
 // ==================== PROJECTS ====================
@@ -100,10 +134,11 @@ export const subscribeToProjects = (callback) => {
 
 export const getAllTimeLogs = async () => {
   const userId = requireAuth();
+  if (!userId) return []; // Safety check for Auth race condition
+
   const logs = await firestoreDB.getTimeLogs(userId);
-  
-  // Enrich with project data
   const projects = await getAllProjects();
+  
   const projectMap = projects.reduce((map, p) => {
     map[p.id] = p;
     return map;
@@ -111,7 +146,9 @@ export const getAllTimeLogs = async () => {
   
   return logs.map(log => ({
     ...log,
-    projectName: projectMap[log.projectId]?.name || 'Unknown',
+    // PRIORITIZE: Log's own perspective -> Project Map perspective -> Default
+    perspective: (log.perspective || projectMap[log.projectId]?.perspective || 'integrator').toLowerCase(),
+    projectName: log.projectName || projectMap[log.projectId]?.name || 'Unknown',
     projectColor: projectMap[log.projectId]?.color,
     projectIcon: projectMap[log.projectId]?.icon
   }));
@@ -464,6 +501,8 @@ export const generateInsights = async () => {
     });
   }
   
+
+  
   // Additional insights logic continues...
   // (I'll include more in the final version, but keeping this shorter for readability)
   
@@ -482,6 +521,7 @@ export const generateInsights = async () => {
   
   return savedInsights;
 };
+
 
 // ==================== CONVERSATIONS (AI Chat) ====================
 
@@ -556,6 +596,35 @@ export const getPerspectiveStats = async () => {
   return stats;
 };
 
+/**
+ * Saves or updates weekly perspective targets
+ */
+export const saveWeeklyGoals = async (goalData) => {
+  const userId = requireAuth();
+
+  try {
+    
+    // We use the start of the current week as the ID to ensure one record per week
+    const weekId = format(startOfWeek(new Date()), 'yyyy-MM-dd');
+    const docRef = doc(db, 'users', userId, 'weekly_goals', weekId);
+
+    await setDoc(docRef, {
+      ...goalData,
+      weekId,
+      userId,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+    
+    return { success: true, id: weekId };
+  } catch (error) {
+    console.error("Error saving weekly goals:", error);
+    throw error;
+  }
+};
+
+
+
+
 // ==================== USER PROFILE ====================
 // Add this section AFTER Portfolio functions and BEFORE the default export
 
@@ -625,6 +694,7 @@ export default {
   calculatePortfolioBalance,
   getProjectsByPerspective,
   getPerspectiveStats,
+  getActiveWeeklyGoals,
   
     // User Profile
   getUserProfile,

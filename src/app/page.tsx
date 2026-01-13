@@ -5,10 +5,24 @@ import { useAuth } from "@/contexts/AuthContext.js";
 // Import auth and db directly from your config
 import { auth, db } from "@/config/firebase.js";
 import { onAuthStateChanged } from "firebase/auth";
-import { collection, query, getDocs, where, addDoc } from "firebase/firestore";
+import {
+  collection,
+  query,
+  getDocs,
+  where,
+  addDoc,
+  doc,
+  getDoc,
+} from "firebase/firestore";
 import Link from "next/link";
 import { PERSPECTIVES } from "@/config/perspectives";
 import TimeLogForm from "@/components/TimeLogForm";
+
+// import { requireAuth } from "@/db/unifiedDB";
+
+import { getActiveWeeklyGoals } from "@/db/unifiedDB";
+import { format, startOfWeek } from "date-fns";
+import * as DB from "@/db/unifiedDB";
 
 interface ProjectItem {
   id: string;
@@ -39,6 +53,8 @@ export default function HomePage() {
 
   const [showTimeLog, setShowTimeLog] = useState(false);
   const [editingTimeLog, setEditingTimeLog] = useState(null);
+  const [weeklyTargets, setWeeklyTargets] = useState<any>(null);
+  const [viewMode, setViewMode] = useState("app"); // 'app' or 'portfolio'
 
   const fetchAllData = useCallback(async () => {
     if (!activeUser) return;
@@ -86,6 +102,12 @@ export default function HomePage() {
       setWeeklyTotal(weeklySum);
       setCurrentWeekLogs(logs);
 
+      // 2. NEW: Fetch your saved Weekly Targets
+      // We import this from unifiedDB. It handles the 'format' and 'startOfWeek' logic.
+      console.log("🎯 Hub fetching targets for:", activeUser.uid);
+      const targets = await getActiveWeeklyGoals();
+      setWeeklyTargets(targets);
+
       setIsInitialLoadDone(true);
     } catch (error) {
       console.error("Fetch error:", error);
@@ -95,6 +117,10 @@ export default function HomePage() {
   }, [activeUser]);
 
   // 2. The Initial Load Effect
+  //  useEffect(() => {
+  //    console.log("All exported members:", Object.keys(DB));
+  //  }, []);
+
   useEffect(() => {
     fetchAllData();
   }, [fetchAllData]);
@@ -411,6 +437,88 @@ export default function HomePage() {
               </div>
             )}
 
+          {/* TARGET VS ACTUAL WIDGET - LIGHT THEME */}
+          {weeklyTargets && (
+            <div className="px-6 mb-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+              <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
+                <div className="flex justify-between items-center mb-5">
+                  <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">
+                    Weekly Focus Progress
+                  </h3>
+                  <div className="px-2 py-0.5 bg-gray-50 rounded-full border border-gray-100">
+                    <span className="text-[9px] font-bold text-gray-500 uppercase">
+                      Targeting 20h
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-5">
+                  {weeklyTargets.targets.map((target: any) => {
+                    const perspectiveKey = target.perspective.toLowerCase();
+                    const actual = pillarSplit[perspectiveKey] || 0;
+                    const goal = target.targetHours || 1;
+                    const progress = Math.min((actual / goal) * 100, 100);
+                    const config = PERSPECTIVES[perspectiveKey];
+
+                    return (
+                      <div key={target.perspective} className="group">
+                        <div className="flex justify-between items-end mb-1.5 px-0.5">
+                          <span className="text-[11px] font-bold text-gray-800 flex items-center gap-1.5">
+                            <span className="opacity-70">{config?.icon}</span>
+                            {target.perspective}
+                          </span>
+                          <span className="text-[10px] font-medium text-gray-400">
+                            <span className="text-gray-900 font-bold">
+                              {actual.toFixed(1)}h
+                            </span>
+                            <span className="mx-1 text-gray-300">/</span>
+                            {goal}h
+                          </span>
+                        </div>
+
+                        {/* Progress Bar Container */}
+                        <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full transition-all duration-1000 ease-out ${
+                              config?.bar || "bg-blue-500"
+                            }`}
+                            style={{ width: `${progress}%` }}
+                          />
+                        </div>
+
+                        {target.focusNote && (
+                          <p className="mt-1.5 text-[9px] text-gray-400 leading-tight px-0.5 line-clamp-1 group-hover:line-clamp-none transition-all">
+                            <span className="font-semibold text-gray-300">
+                              Focus:
+                            </span>{" "}
+                            {target.focusNote}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* WEEKLY SYNTHESIS TRIGGER */}
+          <div className="px-6 mb-4 flex justify-center">
+            <button
+              onClick={() => {
+                // Direct navigation with the specific prompt that triggers the aiService tool
+                window.location.href =
+                  "/chat?prompt=Run a weekly synthesis. Use your tools to look at my current week's time logs and my saved weekly targets. Give me a 'Portfolio Drift' report.";
+              }}
+              className="flex items-center gap-2 px-6 py-2 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black uppercase tracking-[0.2em] hover:bg-indigo-100 transition-all border border-indigo-100 shadow-sm group"
+            >
+              <span className="text-sm group-hover:rotate-12 transition-transform">
+                🌓
+              </span>
+              Run Weekly Synthesis
+            </button>
+          </div>
+
           {/* WEEKLY MOMENTUM BAR */}
           <div className="px-6 mb-8">
             <div className="bg-white p-5 rounded-[2.5rem] shadow-sm border border-gray-100">
@@ -534,57 +642,118 @@ export default function HomePage() {
               </h2>
               <div className="grid grid-cols-2 gap-4">
                 {Object.entries(PERSPECTIVES).map(([id, config]) => {
-                  const isActive = activeFilter === id;
-                  return (
-                    <button
-                      key={id}
-                      onClick={() => setActiveFilter(isActive ? null : id)} // Toggle filter
-                      className={`text-left p-4 rounded-2xl shadow-sm border transition-all duration-300 ${
-                        isActive
-                          ? "border-blue-600 ring-2 ring-blue-50 bg-blue-50/30"
-                          : "bg-white border-gray-100"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between w-full gap-2 overflow-hidden">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="text-xl flex-shrink-0">
-                            {config.icon}
-                          </span>
-                          <span
-                            className={`text-[10px] font-black uppercase truncate ${config.color}`}
-                          >
-                            {config.label}
-                          </span>
-                        </div>
+                  // 1. Identify if this card has a saved target
+                  const targetData = weeklyTargets?.targets?.find(
+                    (t: any) => t.perspective.toLowerCase() === id
+                  );
 
-                        {isActive && (
+                  const actual = pillarSplit[id] || 0;
+                  const goal = targetData?.targetHours;
+                  const isOverTarget = goal ? actual > goal : false;
+
+                  return (
+                    <div key={id} className="space-y-2">
+                      <button
+                        onClick={() =>
+                          setActiveFilter(activeFilter === id ? null : id)
+                        }
+                        className={`w-full p-5 rounded-[2.5rem] border-2 transition-all duration-500 text-left group relative overflow-hidden ${
+                          activeFilter === id
+                            ? `${config.bg} border-current shadow-lg scale-[1.02]`
+                            : "bg-white border-gray-100 hover:border-gray-200 shadow-sm"
+                        }`}
+                        style={{
+                          color: activeFilter === id ? "inherit" : undefined,
+                        }}
+                      >
+                        <div className="flex justify-between items-start relative z-10">
+                          <div className="flex flex-col">
+                            <span className="text-3xl mb-3 block transform group-hover:scale-110 transition-transform duration-300">
+                              {config.icon}
+                            </span>
+                            <h3
+                              className={`font-black text-xs uppercase tracking-widest ${
+                                activeFilter === id
+                                  ? config.color
+                                  : "text-gray-400"
+                              }`}
+                            >
+                              {config.label}
+                            </h3>
+                          </div>
+
+                          {/* THE ARROW LINK (Preserved from your original) */}
                           <Link
                             href={`/perspectives/${id}`}
-                            className="flex-shrink-0 w-6 h-6 flex items-center justify-center bg-white/80 rounded-full shadow-sm"
-                            onClick={(e) => e.stopPropagation()}
+                            className={`p-2 rounded-full transition-colors ${
+                              activeFilter === id
+                                ? "bg-white/50"
+                                : "bg-gray-50 group-hover:bg-gray-100"
+                            }`}
                           >
-                            <span className="text-blue-600 font-bold">→</span>
+                            <svg
+                              className="w-4 h-4 text-gray-400"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={3}
+                                d="M9 5l7 7-7 7"
+                              />
+                            </svg>
                           </Link>
-                        )}
-                      </div>
+                        </div>
 
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-2xl font-bold text-gray-900">
-                          {stats[id].toFixed(1)}
-                        </span>
-                        <span className="text-xs text-gray-400 font-medium">
-                          hrs
-                        </span>
-                      </div>
-                      <div className="mt-3 w-full bg-gray-100 h-1 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full ${config.bar} transition-all duration-1000`}
-                          style={{
-                            width: `${Math.min((stats[id] / 20) * 100, 100)}%`,
-                          }}
-                        />
-                      </div>
-                    </button>
+                        <div className="mt-4 flex items-baseline gap-1 relative z-10">
+                          <span className="text-3xl font-black text-gray-900">
+                            {actual.toFixed(1)}
+                          </span>
+                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">
+                            Hours
+                          </span>
+
+                          {/* TARGET CHIP INJECTED HERE */}
+                          {goal && (
+                            <span
+                              className={`ml-auto px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider ${
+                                isOverTarget
+                                  ? "bg-orange-100 text-orange-600"
+                                  : "bg-gray-50 text-gray-400"
+                              }`}
+                            >
+                              Goal: {goal}h
+                            </span>
+                          )}
+                        </div>
+
+                        {/* INTEGRATED PROGRESS LINE */}
+                        {goal && (
+                          <div className="mt-4 h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full ${config.bar} transition-all duration-1000 ease-out`}
+                              style={{
+                                width: `${Math.min(
+                                  (actual / goal) * 100,
+                                  100
+                                )}%`,
+                              }}
+                            />
+                          </div>
+                        )}
+                      </button>
+
+                      {/* FOCUS NOTE (Placed outside the button to keep click target clean) */}
+                      {targetData?.focusNote && activeFilter === id && (
+                        <div className="px-5 animate-in slide-in-from-top-2 duration-300">
+                          <p className="text-[10px] text-gray-500 leading-relaxed italic border-l-2 border-gray-200 pl-3 py-1">
+                            " {targetData.focusNote} "
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
               </div>

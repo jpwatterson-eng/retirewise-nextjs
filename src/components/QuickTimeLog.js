@@ -17,18 +17,18 @@ const QuickTimeLog = ({ projectId = null }) => {
       >
         <Clock className="w-5 h-5" />
       </button>
-
-      {showForm && (
-        <TimeLogForm
-          preselectedProjectId={projectId}
-          onClose={() => setShowForm(false)}
-          onSaved={() => {
-            setShowForm(false);
-            // Optionally trigger a refresh of parent component
-            window.dispatchEvent(new Event('timeLogAdded'));
-          }}
-        />
-      )}
+      
+{showForm && (
+  <TimeLogForm
+    // FIX: Change 'preselectedProjectId' to 'projectId' to match TimeLogForm props
+    projectId={projectId} 
+    onClose={() => setShowForm(false)}
+    onSaved={() => {
+      setShowForm(false);
+      window.dispatchEvent(new Event('timeLogAdded'));
+    }}
+  />
+)}
     </>
   );
 };
