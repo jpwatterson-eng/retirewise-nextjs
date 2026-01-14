@@ -5,4 +5,5 @@ declare module '@/db/unifiedDB' {
   export function getActiveProjects(): Promise<Project[]>;
   export function createTimeLog(log: Partial<TimeLog>): Promise<string>;
   export function useAuth(): { user: any; loading: boolean };
+  export declare const getActiveWeeklyGoals: () => Promise<any>;
 }
