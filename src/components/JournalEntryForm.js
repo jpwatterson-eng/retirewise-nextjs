@@ -351,7 +351,7 @@ const JournalEntryForm = ({ entry, onClose, onSaved }) => {
         </form>
 
         {/* Footer */}
-        <div className="p-6 pb-20 border-t border-gray-200 flex gap-3 bg-white sticky bottom-0">
+        <div className="p-6 pb-16 border-t border-gray-200 flex gap-3 bg-white sticky bottom-0">
           <button
             type="button"
             onClick={onClose}

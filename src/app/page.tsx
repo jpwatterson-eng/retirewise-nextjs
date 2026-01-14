@@ -35,6 +35,13 @@ interface ProjectItem {
   lastSessionDuration?: number;
 }
 
+const WEEKLY_TARGETS: Record<string, number> = {
+  builder: 10,
+  contributor: 5,
+  integrator: 5,
+  experimenter: 2,
+};
+
 export default function HomePage() {
   const { user: hookUser, loading: hookLoading } = useAuth();
   const [activeUser, setActiveUser] = useState<any>(null);
@@ -64,32 +71,42 @@ export default function HomePage() {
       // 1. Fetch Projects (for your Perspective Cards)
       const projectsRef = collection(db, `users/${activeUser.uid}/projects`);
       const projectSnap = await getDocs(projectsRef);
+
       const projects = projectSnap.docs.map((doc) => ({
         id: doc.id,
-        ...doc.data(),
+        ...(doc.data() as object),
       })) as ProjectItem[];
       setAllProjects(projects);
 
       // 2. Fetch THIS WEEK'S logs (for the Momentum Bar)
       const now = new Date();
-      // const startOfWeek = new Date(now);
       const startOfWeek = new Date();
       const day = now.getDay();
       const diff = day === 0 ? -6 : 1 - day; // Monday start logic
-
       startOfWeek.setDate(now.getDate() + diff);
       startOfWeek.setHours(0, 0, 0, 0);
       const dateGate = startOfWeek.toISOString().split("T")[0];
 
       const logsRef = collection(db, `users/${activeUser.uid}/timeLogs`);
-      // Query logs where date is >= Monday at Midnight
-      const q = query(logsRef, where("date", ">=", dateGate));
-      const logSnap = await getDocs(q);
 
-      // Map the logs to a local array
+      // Query logs where date is >= Monday at Midnight
+      let q;
+      if (viewMode === "app") {
+        // Show ONLY RetireWise logs
+        q = query(
+          logsRef,
+          where("date", ">=", dateGate),
+          where("sourceApp", "==", "retirewise")
+        );
+      } else {
+        // Show EVERYTHING (Portfolio View)
+        q = query(logsRef, where("date", ">=", dateGate));
+      }
+
+      const logSnap = await getDocs(q);
       const logs = logSnap.docs.map((doc) => ({
         id: doc.id,
-        ...doc.data(),
+        ...(doc.data() as object),
       }));
 
       // Calculate the sum
@@ -114,7 +131,7 @@ export default function HomePage() {
     } finally {
       setIsDataLoading(false);
     }
-  }, [activeUser]);
+  }, [activeUser, viewMode]);
 
   // 2. The Initial Load Effect
   //  useEffect(() => {
@@ -180,14 +197,33 @@ export default function HomePage() {
       integrator: 0,
       experimenter: 0,
     };
-    allProjects.forEach((p) => {
-      const type = p.perspective?.toLowerCase();
+
+    currentWeekLogs.forEach((log: any) => {
+      const type = (log.perspective || "").toLowerCase();
       if (totals.hasOwnProperty(type)) {
-        totals[type] += p.totalHoursLogged || 0;
+        totals[type] += log.duration || 0;
       }
     });
-    return totals;
-  }, [allProjects]);
+
+    return Object.keys(totals).map((key) => {
+      const total = totals[key as keyof typeof totals];
+
+      // 🔥 INTEGRATION: Look for the target in your DB-fetched weeklyTargets first
+      const dbTarget = weeklyTargets?.targets?.find(
+        (t: any) => t.perspective.toLowerCase() === key
+      );
+
+      const target = dbTarget?.targetHours || WEEKLY_TARGETS[key] || 10;
+
+      return {
+        id: key,
+        current: total,
+        target: target,
+        percent: Math.min((total / target) * 100, 100),
+        focusNote: dbTarget?.focusNote || "", // Carry over the note from the widget!
+      };
+    });
+  }, [currentWeekLogs, weeklyTargets]); // Add weeklyTargets to dependencies
 
   const todayTotal = useMemo(() => {
     const today = new Date().toISOString().split("T")[0];
@@ -345,6 +381,31 @@ export default function HomePage() {
                     {weeklyTotal > 0 ? "Momentum Active" : "Ready to Start"}
                   </span>
                 </div>
+
+                {/* 🔥 PHASE 6: THE PORTFOLIO TOGGLE */}
+                <div className="flex bg-gray-100/80 p-1 rounded-xl w-fit mt-3 mb-1 border border-gray-100">
+                  <button
+                    onClick={() => setViewMode("app")}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                      viewMode === "app"
+                        ? "bg-white shadow-sm text-blue-600"
+                        : "text-gray-400 hover:text-gray-500"
+                    }`}
+                  >
+                    RetireWise
+                  </button>
+                  <button
+                    onClick={() => setViewMode("portfolio")}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                      viewMode === "portfolio"
+                        ? "bg-white shadow-sm text-blue-600"
+                        : "text-gray-400 hover:text-gray-500"
+                    }`}
+                  >
+                    Portfolio
+                  </button>
+                </div>
+
                 {/* LAST ACTIVITY SNIPPET - Moved here to prevent overlap with ring */}
                 {lastActivity && (
                   <div className="mt-4 px-3 py-1.5 bg-gray-50 rounded-lg inline-block border border-gray-100">
@@ -437,88 +498,6 @@ export default function HomePage() {
               </div>
             )}
 
-          {/* TARGET VS ACTUAL WIDGET - LIGHT THEME */}
-          {weeklyTargets && (
-            <div className="px-6 mb-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
-              <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
-                <div className="flex justify-between items-center mb-5">
-                  <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">
-                    Weekly Focus Progress
-                  </h3>
-                  <div className="px-2 py-0.5 bg-gray-50 rounded-full border border-gray-100">
-                    <span className="text-[9px] font-bold text-gray-500 uppercase">
-                      Targeting 20h
-                    </span>
-                  </div>
-                </div>
-
-                <div className="space-y-5">
-                  {weeklyTargets.targets.map((target: any) => {
-                    const perspectiveKey = target.perspective.toLowerCase();
-                    const actual = pillarSplit[perspectiveKey] || 0;
-                    const goal = target.targetHours || 1;
-                    const progress = Math.min((actual / goal) * 100, 100);
-                    const config = PERSPECTIVES[perspectiveKey];
-
-                    return (
-                      <div key={target.perspective} className="group">
-                        <div className="flex justify-between items-end mb-1.5 px-0.5">
-                          <span className="text-[11px] font-bold text-gray-800 flex items-center gap-1.5">
-                            <span className="opacity-70">{config?.icon}</span>
-                            {target.perspective}
-                          </span>
-                          <span className="text-[10px] font-medium text-gray-400">
-                            <span className="text-gray-900 font-bold">
-                              {actual.toFixed(1)}h
-                            </span>
-                            <span className="mx-1 text-gray-300">/</span>
-                            {goal}h
-                          </span>
-                        </div>
-
-                        {/* Progress Bar Container */}
-                        <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full transition-all duration-1000 ease-out ${
-                              config?.bar || "bg-blue-500"
-                            }`}
-                            style={{ width: `${progress}%` }}
-                          />
-                        </div>
-
-                        {target.focusNote && (
-                          <p className="mt-1.5 text-[9px] text-gray-400 leading-tight px-0.5 line-clamp-1 group-hover:line-clamp-none transition-all">
-                            <span className="font-semibold text-gray-300">
-                              Focus:
-                            </span>{" "}
-                            {target.focusNote}
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* WEEKLY SYNTHESIS TRIGGER */}
-          <div className="px-6 mb-4 flex justify-center">
-            <button
-              onClick={() => {
-                // Direct navigation with the specific prompt that triggers the aiService tool
-                window.location.href =
-                  "/chat?prompt=Run a weekly synthesis. Use your tools to look at my current week's time logs and my saved weekly targets. Give me a 'Portfolio Drift' report.";
-              }}
-              className="flex items-center gap-2 px-6 py-2 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black uppercase tracking-[0.2em] hover:bg-indigo-100 transition-all border border-indigo-100 shadow-sm group"
-            >
-              <span className="text-sm group-hover:rotate-12 transition-transform">
-                🌓
-              </span>
-              Run Weekly Synthesis
-            </button>
-          </div>
-
           {/* WEEKLY MOMENTUM BAR */}
           <div className="px-6 mb-8">
             <div className="bg-white p-5 rounded-[2.5rem] shadow-sm border border-gray-100">
@@ -560,11 +539,22 @@ export default function HomePage() {
               </p>
             </div>
 
-            {weeklyTotal > 0 && (
-              <p className="mt-4 text-[9px] text-gray-300 font-bold uppercase tracking-[0.15em] text-center border-t border-gray-50 pt-4">
-                Current Week Distribution
-              </p>
-            )}
+            {/* WEEKLY SYNTHESIS TRIGGER */}
+            <div className="px-6 mb-4 flex justify-center">
+              <button
+                onClick={() => {
+                  // Direct navigation with the specific prompt that triggers the aiService tool
+                  window.location.href =
+                    "/chat?prompt=Run a weekly synthesis. Use your tools to look at my current week's time logs and my saved weekly targets. Give me a 'Portfolio Drift' report.";
+                }}
+                className="flex items-center gap-2 px-6 py-2 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black uppercase tracking-[0.2em] hover:bg-indigo-100 transition-all border border-indigo-100 shadow-sm group"
+              >
+                <span className="text-sm group-hover:rotate-12 transition-transform">
+                  🌓
+                </span>
+                Run Weekly Synthesis
+              </button>
+            </div>
 
             {showRetro && (
               <div className="px-6 mb-8 animate-in zoom-in-95 duration-500">
@@ -606,32 +596,6 @@ export default function HomePage() {
                 </div>
               </div>
             )}
-
-            {/* PILLAR BREAKDOWN LEGEND */}
-            <div className="flex flex-wrap gap-3 mt-4 pt-4 border-t border-gray-50">
-              {Object.entries(pillarSplit).map(([name, hours]) => {
-                if (hours <= 0) return null;
-
-                // FIX: Direct lookup using the normalized lowercase name
-                const pConfig = PERSPECTIVES[name];
-
-                return (
-                  <div key={name} className="flex items-center gap-2">
-                    <div
-                      className={`w-2 h-2 rounded-full ${
-                        pConfig?.bar || "bg-gray-300"
-                      }`}
-                    />
-                    <span className="text-[10px] font-black text-gray-500 uppercase tracking-tighter">
-                      {pConfig?.label || name}
-                    </span>
-                    <span className="text-[10px] font-bold text-gray-900">
-                      {hours.toFixed(1)}h
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
           </div>
 
           <div className="p-6 space-y-8">
@@ -640,120 +604,52 @@ export default function HomePage() {
               <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
                 Perspective Balance
               </h2>
-              <div className="grid grid-cols-2 gap-4">
-                {Object.entries(PERSPECTIVES).map(([id, config]) => {
-                  // 1. Identify if this card has a saved target
-                  const targetData = weeklyTargets?.targets?.find(
-                    (t: any) => t.perspective.toLowerCase() === id
-                  );
-
-                  const actual = pillarSplit[id] || 0;
-                  const goal = targetData?.targetHours;
-                  const isOverTarget = goal ? actual > goal : false;
+              <div className="grid grid-cols-2 gap-3 px-6">
+                {" "}
+                {/* Reduced gap for 2-column fit */}
+                {stats.map((stat) => {
+                  const config =
+                    PERSPECTIVES[stat.id as keyof typeof PERSPECTIVES];
+                  if (!config) return null;
 
                   return (
-                    <div key={id} className="space-y-2">
-                      <button
-                        onClick={() =>
-                          setActiveFilter(activeFilter === id ? null : id)
-                        }
-                        className={`w-full p-5 rounded-[2.5rem] border-2 transition-all duration-500 text-left group relative overflow-hidden ${
-                          activeFilter === id
-                            ? `${config.bg} border-current shadow-lg scale-[1.02]`
-                            : "bg-white border-gray-100 hover:border-gray-200 shadow-sm"
-                        }`}
-                        style={{
-                          color: activeFilter === id ? "inherit" : undefined,
-                        }}
-                      >
-                        <div className="flex justify-between items-start relative z-10">
-                          <div className="flex flex-col">
-                            <span className="text-3xl mb-3 block transform group-hover:scale-110 transition-transform duration-300">
-                              {config.icon}
-                            </span>
-                            <h3
-                              className={`font-black text-xs uppercase tracking-widest ${
-                                activeFilter === id
-                                  ? config.color
-                                  : "text-gray-400"
-                              }`}
-                            >
-                              {config.label}
-                            </h3>
-                          </div>
-
-                          {/* THE ARROW LINK (Preserved from your original) */}
-                          <Link
-                            href={`/perspectives/${id}`}
-                            className={`p-2 rounded-full transition-colors ${
-                              activeFilter === id
-                                ? "bg-white/50"
-                                : "bg-gray-50 group-hover:bg-gray-100"
-                            }`}
+                    <Link
+                      key={stat.id}
+                      href={`/perspectives/${stat.id}`}
+                      className="bg-white p-4 rounded-[1.5rem] shadow-sm border border-gray-100 active:scale-95 transition-transform flex flex-col justify-between"
+                    >
+                      <div>
+                        <div className="flex justify-between items-start mb-2">
+                          <span className="text-xl">{config.icon}</span>
+                          <span
+                            className={`text-xs font-black ${config.color.replace(
+                              "bg-",
+                              "text-"
+                            )}`}
                           >
-                            <svg
-                              className="w-4 h-4 text-gray-400"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={3}
-                                d="M9 5l7 7-7 7"
-                              />
-                            </svg>
-                          </Link>
-                        </div>
-
-                        <div className="mt-4 flex items-baseline gap-1 relative z-10">
-                          <span className="text-3xl font-black text-gray-900">
-                            {actual.toFixed(1)}
+                            {stat.current.toFixed(1)}h
                           </span>
-                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">
-                            Hours
-                          </span>
-
-                          {/* TARGET CHIP INJECTED HERE */}
-                          {goal && (
-                            <span
-                              className={`ml-auto px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider ${
-                                isOverTarget
-                                  ? "bg-orange-100 text-orange-600"
-                                  : "bg-gray-50 text-gray-400"
-                              }`}
-                            >
-                              Goal: {goal}h
-                            </span>
-                          )}
                         </div>
+                        <h3 className="text-[10px] font-black text-gray-900 uppercase tracking-tighter mb-2">
+                          {config.label}
+                        </h3>
+                      </div>
 
-                        {/* INTEGRATED PROGRESS LINE */}
-                        {goal && (
-                          <div className="mt-4 h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full ${config.bar} transition-all duration-1000 ease-out`}
-                              style={{
-                                width: `${Math.min(
-                                  (actual / goal) * 100,
-                                  100
-                                )}%`,
-                              }}
-                            />
-                          </div>
-                        )}
-                      </button>
-
-                      {/* FOCUS NOTE (Placed outside the button to keep click target clean) */}
-                      {targetData?.focusNote && activeFilter === id && (
-                        <div className="px-5 animate-in slide-in-from-top-2 duration-300">
-                          <p className="text-[10px] text-gray-500 leading-relaxed italic border-l-2 border-gray-200 pl-3 py-1">
-                            " {targetData.focusNote} "
-                          </p>
+                      <div>
+                        <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden mb-2">
+                          <div
+                            className={`h-full ${
+                              config.bar || config.bg
+                            } transition-all duration-1000`}
+                            style={{ width: `${stat.percent}%` }}
+                          />
                         </div>
-                      )}
-                    </div>
+                        <div className="flex justify-between items-center text-[8px] font-bold text-gray-400 uppercase">
+                          <span>Goal: {stat.target}h</span>
+                          <span>{Math.round(stat.percent)}%</span>
+                        </div>
+                      </div>
+                    </Link>
                   );
                 })}
               </div>
@@ -792,12 +688,7 @@ export default function HomePage() {
 
                       // 2. Direct lookup in the PERSPECTIVES object
                       const pConfig = PERSPECTIVES[pId];
-                      console.log(
-                        "Log Project:",
-                        log.projectName,
-                        "Raw Perspective:",
-                        log.perspective
-                      );
+
                       // 3. Time Display Logic
                       const dateObj = new Date(log.date);
                       const displayTime = log.date.includes("T")

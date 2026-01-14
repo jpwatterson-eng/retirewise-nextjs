@@ -34,6 +34,20 @@ export default function PerspectiveDeepDive() {
   const [selectedProject, setSelectedProject] = useState("");
   const [hours, setHours] = useState("");
 
+  const [viewMode, setViewMode] = useState<"app" | "portfolio">("app");
+
+  const perspectiveId = config.id.toLowerCase();
+
+  const now = new Date();
+  const startOfWeek = useMemo(() => {
+    const d = new Date(now);
+    const day = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day; // Monday start logic
+    d.setDate(d.getDate() + diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       if (u) setUser(u);
@@ -70,28 +84,50 @@ export default function PerspectiveDeepDive() {
   }, [user, config]);
 
   // Fetch the logs
+  // Fetch the logs
   useEffect(() => {
+    // 1. Define perspectiveId inside the effect to fix the red squiggle
+    const perspectiveId = config.id.toLowerCase();
+
     if (!user || !config) return;
 
     const fetchLogs = async () => {
       try {
-        // Find logs across ALL projects that match this perspective
         const logsRef = collection(db, `users/${user.uid}/timeLogs`);
-        const q = query(
-          logsRef,
-          where("perspective", "in", [config.label, config.id]),
-          orderBy("date", "desc") // Show newest first
-        );
+        let q;
+
+        // 2. Apply Phase 6 Filtering
+        if (viewMode === "app") {
+          // Only this app's logs for this specific perspective
+          q = query(
+            logsRef,
+            where("perspective", "==", perspectiveId),
+            where("sourceApp", "==", "retirewise"),
+            orderBy("date", "desc")
+          );
+        } else {
+          // ALL logs across the portfolio for this specific perspective
+          q = query(
+            logsRef,
+            where("perspective", "==", perspectiveId),
+            orderBy("date", "desc")
+          );
+        }
 
         const snap = await getDocs(q);
-        setLogs(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setLogs(
+          snap.docs.map((d) => ({
+            id: d.id,
+            ...(d.data() as object),
+          }))
+        );
       } catch (err) {
         console.error("Error fetching logs:", err);
       }
     };
 
     fetchLogs();
-  }, [user, config]);
+  }, [user, config, viewMode]);
 
   // Inside PerspectiveDeepDive component
   const handleInlineLog = async () => {
@@ -190,15 +226,22 @@ export default function PerspectiveDeepDive() {
   const remainingHours = nextMilestone - totalHours;
   const milestoneProgress = Math.min((totalHours / nextMilestone) * 100, 100);
 
+  const weeklyPerspectiveTotal = useMemo(() => {
+    return logs
+      .filter((log) => new Date(log.date) >= startOfWeek)
+      .reduce((sum, log) => {
+        const duration = log.duration > 8 ? log.duration / 60 : log.duration;
+        return sum + duration;
+      }, 0);
+  }, [logs, startOfWeek]);
+
   if (loading)
     return <div className="p-10 text-center">Loading {config.label}...</div>;
 
   return (
     <main className="min-h-screen bg-gray-50 pb-20">
       {/* HEADER */}
-      <div
-        className={`${config.bg} px-6 pt-12 pb-8 border-b rounded-b-[2.5rem]`}
-      >
+      <div className={`${config.bg} px-6 pt-4 pb-4 border-b rounded-[2.5rem]`}>
         <button
           onClick={() => router.back()}
           className="mb-4 text-gray-500 flex items-center gap-1"
@@ -223,6 +266,31 @@ export default function PerspectiveDeepDive() {
             </p>
           </div>
         </div>
+
+        {/* 🔥 PHASE 6 TOGGLE START */}
+        <div className="flex bg-white/40 backdrop-blur-sm p-1 rounded-xl w-fit mt-6 border border-white/20">
+          <button
+            onClick={() => setViewMode("app")}
+            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+              viewMode === "app"
+                ? "bg-white shadow-sm text-blue-600"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            RetireWise
+          </button>
+          <button
+            onClick={() => setViewMode("portfolio")}
+            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+              viewMode === "portfolio"
+                ? "bg-white shadow-sm text-blue-600"
+                : "text-gray-400 hover:text-gray-700"
+            }`}
+          >
+            Portfolio
+          </button>
+        </div>
+        {/* 🔥 PHASE 6 TOGGLE END */}
       </div>
 
       <div className="px-6 mt-8">
@@ -288,30 +356,34 @@ export default function PerspectiveDeepDive() {
           <div className="flex justify-between items-end mb-3">
             <div>
               <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">
-                Next Milestone
+                Weekly {viewMode === "app" ? "App" : "Portfolio"} Goal
               </h2>
               <p className="text-xl font-bold text-gray-900">
-                {nextMilestone} Hours
+                {weeklyPerspectiveTotal.toFixed(1)} / 10.0 Hours
               </p>
             </div>
             <div className="text-right">
               <p className={`text-sm font-bold ${config.color}`}>
-                {remainingHours.toFixed(1)}{" "}
+                {Math.max(0, 10 - weeklyPerspectiveTotal).toFixed(1)}{" "}
                 <span className="text-gray-400">to go</span>
               </p>
             </div>
           </div>
 
-          {/* Milestone Progress Bar */}
+          {/* Global Progress Bar */}
           <div className="w-full bg-gray-100 h-3 rounded-full overflow-hidden shadow-inner">
             <div
               className={`h-full ${config.bar} transition-all duration-1000 ease-out shadow-sm`}
-              style={{ width: `${milestoneProgress}%` }}
+              style={{
+                width: `${Math.min((weeklyPerspectiveTotal / 10) * 100, 100)}%`,
+              }}
             />
           </div>
 
           <p className="mt-2 text-[10px] text-center text-gray-400 font-medium italic">
-            "Progress is the sum of small efforts, repeated day in and day out."
+            {weeklyPerspectiveTotal >= 10
+              ? "Weekly goal achieved! You're dominating this perspective."
+              : "Keep pushing—every minute counts toward your weekly focus."}
           </p>
         </div>
       </div>
@@ -319,46 +391,59 @@ export default function PerspectiveDeepDive() {
       {/* PROJECT BREAKDOWN */}
       <div className="p-6">
         <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">
-          Focus Areas
+          Weekly Focus Areas
         </h2>
         <div className="space-y-4">
-          {projects.map((p) => (
-            <div
-              key={p.id}
-              className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100"
-            >
-              <h3 className="font-bold text-gray-800 mb-1">{p.name}</h3>
-              <div className="flex justify-between text-xs text-gray-500 mb-3">
-                <span>Progress</span>
-                <span>
-                  {p.totalHoursLogged || 0} / {p.targetHours || 20}h
-                </span>
+          {projects.map((p) => {
+            // Calculate this project's specific contribution THIS WEEK
+            const projectWeeklyHours = logs
+              .filter(
+                (log) =>
+                  log.projectId === p.id && new Date(log.date) >= startOfWeek
+              )
+              .reduce(
+                (sum, log) =>
+                  sum + (log.duration > 8 ? log.duration / 60 : log.duration),
+                0
+              );
+
+            const projectTarget = 5; // Example: 5h weekly focus per project
+
+            return (
+              <div
+                key={p.id}
+                className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100"
+              >
+                <h3 className="font-bold text-gray-800 mb-1">{p.name}</h3>
+                <div className="flex justify-between text-xs text-gray-500 mb-3">
+                  <span>Weekly Momentum</span>
+                  <span>
+                    {projectWeeklyHours.toFixed(1)} / {projectTarget}h
+                  </span>
+                </div>
+                <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full transition-all duration-1000 ${config.bar}`}
+                    style={{
+                      width: `${Math.min(
+                        (projectWeeklyHours / projectTarget) * 100,
+                        100
+                      )}%`,
+                    }}
+                  />
+                </div>
               </div>
-              <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-                <div
-                  className={`h-full transition-all duration-1000 ${config.color.replace(
-                    "text",
-                    "bg"
-                  )}`}
-                  style={{
-                    width: `${Math.min(
-                      ((p.totalHoursLogged || 0) / (p.targetHours || 20)) * 100,
-                      100
-                    )}%`,
-                  }}
-                />
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
       {/* ACTIVITY FEED */}
-      <div className="p-6">
-        <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">
+      <div className="p-6 pb-32">
+        <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-3">
           Recent History
         </h2>
-        <div className="space-y-3">
+        <div className="space-y-2">
           {logs.length > 0 ? (
             logs.map((log) => (
               <div

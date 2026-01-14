@@ -132,13 +132,18 @@ export const subscribeToProjects = (callback) => {
 
 // ==================== TIME LOGS ====================
 
-export const getAllTimeLogs = async () => {
+export const getAllTimeLogs = async (filterByApp = null) => {
   const userId = requireAuth();
   if (!userId) return []; // Safety check for Auth race condition
 
-  const logs = await firestoreDB.getTimeLogs(userId);
+  let logs = await firestoreDB.getTimeLogs(userId);
+
+// PHASE 6 FILTERING
+  if (filterByApp) {
+    logs = logs.filter(log => log.sourceApp === filterByApp);
+  }
+
   const projects = await getAllProjects();
-  
   const projectMap = projects.reduce((map, p) => {
     map[p.id] = p;
     return map;
