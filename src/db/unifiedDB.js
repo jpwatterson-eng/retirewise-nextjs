@@ -627,9 +627,6 @@ export const saveWeeklyGoals = async (goalData) => {
   }
 };
 
-
-
-
 // ==================== USER PROFILE ====================
 // Add this section AFTER Portfolio functions and BEFORE the default export
 

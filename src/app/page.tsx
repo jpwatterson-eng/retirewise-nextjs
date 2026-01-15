@@ -23,6 +23,8 @@ import TimeLogForm from "@/components/TimeLogForm";
 import { getActiveWeeklyGoals } from "@/db/unifiedDB";
 import { format, startOfWeek } from "date-fns";
 import * as DB from "@/db/unifiedDB";
+import WeeklyGoalModal from "@/components/WeeklyGoalModal";
+import { saveWeeklyGoals } from "@/db/unifiedDB"; // Ensure this is exported
 
 interface ProjectItem {
   id: string;
@@ -62,6 +64,7 @@ export default function HomePage() {
   const [editingTimeLog, setEditingTimeLog] = useState(null);
   const [weeklyTargets, setWeeklyTargets] = useState<any>(null);
   const [viewMode, setViewMode] = useState("app"); // 'app' or 'portfolio'
+  const [showGoalModal, setShowGoalModal] = useState(false);
 
   const fetchAllData = useCallback(async () => {
     if (!activeUser) return;
@@ -225,6 +228,16 @@ export default function HomePage() {
     });
   }, [currentWeekLogs, weeklyTargets]); // Add weeklyTargets to dependencies
 
+  const handleSaveGoals = async (goalsData: any) => {
+    try {
+      await saveWeeklyGoals(goalsData);
+      await fetchAllData(); // Refresh the Hub stats
+      setShowGoalModal(false);
+    } catch (error) {
+      console.error("Failed to save goals:", error);
+    }
+  };
+
   const todayTotal = useMemo(() => {
     const today = new Date().toISOString().split("T")[0];
     // If your project documents don't have individual log dates,
@@ -257,9 +270,24 @@ export default function HomePage() {
     return split;
   }, [currentWeekLogs]);
 
-  const WEEKLY_GOAL = 15;
+  // 1. Calculate the Dynamic Weekly Goal from your saved targets
+  const dynamicWeeklyGoal = useMemo(() => {
+    // If we have saved targets, sum up their targetHours
+    if (weeklyTargets?.targets?.length > 0) {
+      return weeklyTargets.targets.reduce(
+        (sum: number, t: any) => sum + (t.targetHours || 0),
+        0
+      );
+    }
+    // Fallback to your old default if no targets exist yet
+    return 15;
+  }, [weeklyTargets]);
+
+  // 2. Update the progress calculation to use the dynamic goal
   const weeklyProgress =
-    weeklyTotal > 0 ? Math.min((weeklyTotal / WEEKLY_GOAL) * 100, 100) : 0;
+    weeklyTotal > 0
+      ? Math.min((weeklyTotal / dynamicWeeklyGoal) * 100, 100)
+      : 0;
 
   // 1. FIRST GUARD: Firebase is still "waking up"
   if (isInitializing) {
@@ -357,7 +385,6 @@ export default function HomePage() {
     }
   };
 
-  // may want pt-4 in main //
   return (
     <main className="min-h-screen bg-gray-50 pb-24">
       {/* If we aren't done loading the first time, show NOTHING or a Full Screen Spinner */}
@@ -511,7 +538,7 @@ export default function HomePage() {
                       {weeklyTotal.toFixed(1)}
                     </span>
                     <span className="text-gray-400 text-sm font-bold italic">
-                      / {WEEKLY_GOAL}h
+                      / {dynamicWeeklyGoal}h
                     </span>
                   </div>
                 </div>
@@ -553,6 +580,12 @@ export default function HomePage() {
                   🌓
                 </span>
                 Run Weekly Synthesis
+              </button>
+              <button
+                onClick={() => setShowGoalModal(true)}
+                className="px-4 py-2 bg-white border border-gray-200 rounded-full text-[10px] font-black uppercase tracking-widest text-gray-600 shadow-sm hover:bg-gray-50 transition-all"
+              >
+                🎯 Plan My Week
               </button>
             </div>
 
@@ -808,6 +841,13 @@ export default function HomePage() {
                   )}
               </div>
             </section>
+            <WeeklyGoalModal
+              isOpen={showGoalModal}
+              onClose={() => setShowGoalModal(false)}
+              onSave={handleSaveGoals}
+              initialGoals={weeklyTargets}
+              allProjects={allProjects} // 🔥 Ensure this prop is passed!
+            />
           </div>
 
           {/* QUICK LOG CTA (For Mobile Ease) */}

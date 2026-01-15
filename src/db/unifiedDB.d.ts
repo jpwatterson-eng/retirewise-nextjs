@@ -6,4 +6,5 @@ declare module '@/db/unifiedDB' {
   export function createTimeLog(log: Partial<TimeLog>): Promise<string>;
   export function useAuth(): { user: any; loading: boolean };
   export declare const getActiveWeeklyGoals: () => Promise<any>;
+  export function saveWeeklyGoals(goalData: any): Promise<any>;
 }
