@@ -72,6 +72,59 @@ export default function QuickLogPage() {
   const [isLogging, setIsLogging] = useState<boolean>(false);
   const [showSuccess, setShowSuccess] = useState<boolean>(false);
 
+  // --- ADD PULSE LOGIC HERE ---
+  const [weeklyTotal, setWeeklyTotal] = useState<number>(0);
+  const [dynamicWeeklyGoal, setDynamicWeeklyGoal] = useState<number>(40); // Default fallback
+  const [weeklyProgress, setWeeklyProgress] = useState<number>(0);
+
+  useEffect(() => {
+    if (!activeUser) return;
+
+    const calculatePulse = async () => {
+      try {
+        // 1. Get recent logs (last 7 days)
+        const logsRef = collection(db, `users/${activeUser.uid}/timeLogs`);
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+
+        const q = query(logsRef, where("date", ">=", weekAgo.toISOString()));
+        const snapshot = await getDocs(q);
+
+        const total = snapshot.docs.reduce(
+          (sum, doc) => sum + (doc.data().duration || 0),
+          0
+        );
+        setWeeklyTotal(Math.round(total * 10) / 10);
+
+        // 2. Fetch Weekly Goals to get the Target
+        const goalsRef = collection(db, `users/${activeUser.uid}/weeklyGoals`);
+        const goalQuery = query(
+          goalsRef,
+          where("status", "==", "committed"),
+          limit(1)
+        );
+        const goalSnapshot = await getDocs(goalQuery);
+
+        if (!goalSnapshot.empty) {
+          const goalData = goalSnapshot.docs[0].data();
+          const targetSum =
+            goalData.targets?.reduce(
+              (sum: number, t: any) => sum + (t.targetHours || 0),
+              0
+            ) || 40;
+          setDynamicWeeklyGoal(targetSum);
+          setWeeklyProgress(Math.min(100, (total / targetSum) * 100));
+        } else {
+          setWeeklyProgress(Math.min(100, (total / 40) * 100));
+        }
+      } catch (err) {
+        console.error("Pulse calculation failed", err);
+      }
+    };
+
+    calculatePulse();
+  }, [activeUser]);
+
   useEffect(() => {
     const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -213,6 +266,33 @@ export default function QuickLogPage() {
             >
               ✕ Close
             </Link>
+          </div>
+
+          {/* THE PULSE BAR */}
+          <div className="mb-6 p-4 bg-indigo-50 rounded-2xl border border-indigo-100 animate-in fade-in zoom-in duration-500">
+            <div className="flex justify-between items-center mb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-sm">🌓</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">
+                  Weekly Pulse
+                </span>
+              </div>
+              <span className="text-[10px] font-bold text-indigo-600">
+                {weeklyTotal}h / {dynamicWeeklyGoal}h
+              </span>
+            </div>
+            <div className="h-2 w-full bg-white/50 rounded-full overflow-hidden border border-indigo-100/50">
+              <div
+                className="h-full bg-indigo-500 transition-all duration-1000 ease-out"
+                style={{ width: `${weeklyProgress}%` }}
+              />
+            </div>
+            {weeklyProgress >= 100 && (
+              <p className="text-[9px] font-bold text-indigo-400 mt-2 text-center uppercase tracking-tighter">
+                ✨ Weekly target reached. Every minute now is pure bonus
+                momentum.
+              </p>
+            )}
           </div>
 
           {/* PROJECT SELECTION */}

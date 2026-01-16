@@ -81,7 +81,18 @@ export default function WeeklyGoalModal({
 
   const handleUpdate = (index: number, field: string, value: any) => {
     const newGoals = [...goals];
-    newGoals[index] = { ...newGoals[index], [field]: value };
+
+    if (field === "targetHours") {
+      // If user clears the input, use 0 instead of NaN
+      const parsedValue = parseFloat(value);
+      newGoals[index] = {
+        ...newGoals[index],
+        [field]: isNaN(parsedValue) ? 0 : parsedValue,
+      };
+    } else {
+      newGoals[index] = { ...newGoals[index], [field]: value };
+    }
+
     setGoals(newGoals);
   };
 
@@ -139,15 +150,14 @@ export default function WeeklyGoalModal({
                     <div className="flex items-center gap-2 bg-white px-3 py-1 rounded-full border shadow-sm">
                       <input
                         type="number"
-                        value={goal.targetHours}
+                        // If the goal is 0, we can show an empty string so the user
+                        // doesn't have to delete the 0 to type a new number
+                        value={goal.targetHours === 0 ? "" : goal.targetHours}
                         onChange={(e) =>
-                          handleUpdate(
-                            idx,
-                            "targetHours",
-                            parseFloat(e.target.value)
-                          )
+                          handleUpdate(idx, "targetHours", e.target.value)
                         }
-                        className="w-10 text-center font-black text-blue-600 outline-none"
+                        className="w-10 text-center font-black text-blue-600 outline-none bg-transparent"
+                        placeholder="0"
                       />
                       <span className="text-[10px] font-bold text-gray-400 uppercase">
                         hrs

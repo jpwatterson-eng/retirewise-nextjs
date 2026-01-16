@@ -25,6 +25,7 @@ import { format, startOfWeek } from "date-fns";
 import * as DB from "@/db/unifiedDB";
 import WeeklyGoalModal from "@/components/WeeklyGoalModal";
 import { saveWeeklyGoals } from "@/db/unifiedDB"; // Ensure this is exported
+import AI from "@/services/aiService";
 
 interface ProjectItem {
   id: string;
@@ -65,6 +66,9 @@ export default function HomePage() {
   const [weeklyTargets, setWeeklyTargets] = useState<any>(null);
   const [viewMode, setViewMode] = useState("app"); // 'app' or 'portfolio'
   const [showGoalModal, setShowGoalModal] = useState(false);
+
+  const [healthReport, setHealthReport] = useState<any>(null);
+  const [isSynthesizing, setIsSynthesizing] = useState(false);
 
   const fetchAllData = useCallback(async () => {
     if (!activeUser) return;
@@ -235,6 +239,76 @@ export default function HomePage() {
       setShowGoalModal(false);
     } catch (error) {
       console.error("Failed to save goals:", error);
+    }
+  };
+
+  const portfolioDrift = useMemo(() => {
+    const under = stats.filter((s) => s.percent < 30 && s.target > 0);
+    const over = stats.filter((s) => s.percent > 110);
+
+    return {
+      isDrifting: under.length > 0 || over.length > 0,
+      under,
+      over,
+    };
+  }, [stats]);
+
+  const runVisualSynthesis = async () => {
+    setIsSynthesizing(true);
+    try {
+      // 1. We make the prompt more conversational but strict about the final goal
+      const prompt = `
+      I need a Portfolio Health Audit for my current week.
+      
+      STEP 1: Use your tools (get_recent_activity and get_weekly_synthesis) to examine my logs and targets.
+      STEP 2: Once you have the data, analyze it for 'Portfolio Drift'.
+      STEP 3: Finally, output a JSON report with your findings. 
+      
+      Do NOT just finish with a tool call. You MUST provide the final JSON summary.
+
+      {
+        "score": number, 
+        "status": "Momentum" | "Drifting" | "Imbalanced" | "Peak",
+        "insight": "A sharp, specific one-sentence observation.",
+        "tactics": ["Action 1", "Action 2", "Action 3"]
+      }
+    `;
+
+      let result = await AI.sendMessage(prompt);
+
+      // 2. 🔥 THE NUDGE: If the AI returns empty text after tool use (as seen in logs),
+      // we send a tiny follow-up message to force the summary.
+      if (!result.response || result.response.trim() === "") {
+        console.log("AI was silent after tool use. Sending a nudge...");
+        result = await AI.sendMessage(
+          "Excellent. Now, based on those results, provide the final JSON report as requested."
+        );
+      }
+
+      // 3. Robust JSON Extraction
+      const firstBracket = result.response.indexOf("{");
+      const lastBracket = result.response.lastIndexOf("}");
+
+      if (firstBracket !== -1 && lastBracket !== -1) {
+        const jsonString = result.response.substring(
+          firstBracket,
+          lastBracket + 1
+        );
+        setHealthReport(JSON.parse(jsonString));
+      } else {
+        throw new Error("JSON not found in final response");
+      }
+    } catch (error) {
+      console.error("Synthesis failed:", error);
+      setHealthReport({
+        score: 0,
+        status: "Syncing...",
+        insight:
+          "The Brain is processing a lot of data. Try one more time to generate the report.",
+        tactics: ["The second click usually forces the summary."],
+      });
+    } finally {
+      setIsSynthesizing(false);
     }
   };
 
@@ -566,28 +640,105 @@ export default function HomePage() {
               </p>
             </div>
 
-            {/* WEEKLY SYNTHESIS TRIGGER */}
-            <div className="px-6 mb-4 flex justify-center">
-              <button
-                onClick={() => {
-                  // Direct navigation with the specific prompt that triggers the aiService tool
-                  window.location.href =
-                    "/chat?prompt=Run a weekly synthesis. Use your tools to look at my current week's time logs and my saved weekly targets. Give me a 'Portfolio Drift' report.";
-                }}
-                className="flex items-center gap-2 px-6 py-2 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black uppercase tracking-[0.2em] hover:bg-indigo-100 transition-all border border-indigo-100 shadow-sm group"
-              >
-                <span className="text-sm group-hover:rotate-12 transition-transform">
-                  🌓
-                </span>
-                Run Weekly Synthesis
-              </button>
-              <button
-                onClick={() => setShowGoalModal(true)}
-                className="px-4 py-2 bg-white border border-gray-200 rounded-full text-[10px] font-black uppercase tracking-widest text-gray-600 shadow-sm hover:bg-gray-50 transition-all"
-              >
-                🎯 Plan My Week
-              </button>
+            {/* UPDATED SYNTHESIS SECTION */}
+            {/* UPDATED ACTION ROW */}
+            <div className="px-6 mb-8">
+              {!healthReport ? (
+                /* 1. FLEX WRAPPER FOR SIDE-BY-SIDE BUTTONS */
+                <div className="flex gap-2 items-stretch">
+                  <button
+                    onClick={runVisualSynthesis}
+                    disabled={isSynthesizing}
+                    className="flex-[2] py-4 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50"
+                  >
+                    {isSynthesizing ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <span className="text-sm">🌓</span>
+                        <span>Portfolio Synthesis</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => setShowGoalModal(true)}
+                    className="flex-1 py-4 bg-white border border-gray-200 text-gray-600 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-sm flex items-center justify-center gap-2 active:scale-95 transition-all hover:bg-gray-50"
+                  >
+                    <span className="text-sm">🎯</span>
+                    <span>Plan</span>
+                  </button>
+                </div>
+              ) : (
+                /* 2. SHOW THE REPORT (with Plan button still accessible underneath) */
+                <div className="space-y-4">
+                  <div className="bg-white p-6 rounded-[2.5rem] border border-indigo-100 shadow-xl animate-in zoom-in-95 duration-300">
+                    <div className="flex justify-between items-center mb-4">
+                      <span className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black uppercase tracking-widest">
+                        {healthReport.status}
+                      </span>
+                      <span className="text-2xl font-black text-indigo-600">
+                        {healthReport.score}%
+                      </span>
+                    </div>
+
+                    <p className="text-sm font-bold text-gray-800 leading-tight mb-4 italic">
+                      "{healthReport.insight}"
+                    </p>
+
+                    <div className="space-y-2 mb-4">
+                      {healthReport.tactics.map((tactic: string, i: number) => (
+                        <div
+                          key={i}
+                          className="flex gap-2 text-[11px] font-medium text-gray-600"
+                        >
+                          <span className="text-indigo-400">→</span> {tactic}
+                        </div>
+                      ))}
+                    </div>
+
+                    <button
+                      onClick={() => setHealthReport(null)}
+                      className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mx-auto hover:text-gray-600"
+                    >
+                      Dismiss Report
+                    </button>
+                  </div>
+
+                  {/* Keep the Plan button visible even when report is shown to allow immediate course-correction */}
+                  <button
+                    onClick={() => setShowGoalModal(true)}
+                    className="w-full py-3 bg-white border border-gray-200 text-gray-500 rounded-2xl font-black uppercase tracking-widest text-[9px] flex items-center justify-center gap-2"
+                  >
+                    🎯 Adjust Weekly Plan
+                  </button>
+                </div>
+              )}
             </div>
+
+            {/*Portfolio drift */}
+            {portfolioDrift.isDrifting && (
+              <div className="px-6 mb-4 animate-in fade-in slide-in-from-bottom-2">
+                <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl flex items-start gap-3">
+                  <span className="text-xl">⚖️</span>
+                  <div>
+                    <h4 className="text-amber-900 font-black text-[10px] uppercase tracking-widest">
+                      Portfolio Drift Detected
+                    </h4>
+                    <p className="text-amber-800 text-xs font-medium leading-tight mt-1">
+                      {portfolioDrift.under.length > 0 &&
+                        `Focus is low on ${portfolioDrift.under
+                          .map((s) => s.id)
+                          .join(", ")}. `}
+                      {portfolioDrift.over.length > 0 &&
+                        `You're over-indexing on ${portfolioDrift.over
+                          .map((s) => s.id)
+                          .join(", ")}.`}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {showRetro && (
               <div className="px-6 mb-8 animate-in zoom-in-95 duration-500">
@@ -701,7 +852,7 @@ export default function HomePage() {
                 )}
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {currentWeekLogs.length === 0 ? (
                   <div className="bg-gray-50 border-2 border-dashed border-gray-100 rounded-3xl p-8 text-center">
                     <p className="text-gray-400 text-xs font-medium">
@@ -739,7 +890,7 @@ export default function HomePage() {
                       return (
                         <div
                           key={log.id}
-                          className="flex items-center gap-4 py-3 border-b border-gray-50 last:border-0"
+                          className="flex items-center gap-2 py-2 border-b border-gray-50 last:border-0"
                           onClick={() => {
                             setEditingTimeLog(log); // You'll need to add this state to page.tsx
                             setShowTimeLog(true);
@@ -797,9 +948,11 @@ export default function HomePage() {
                     const progress = Math.min((current / goal) * 100, 100);
 
                     return (
-                      <div
+                      /* 🔥 ADDED: Link wrapper to navigate to Project Details */
+                      <Link
                         key={project.id}
-                        className="bg-white p-4 rounded-xl shadow-sm border border-gray-100"
+                        href={`/projects/${project.id}`}
+                        className="block bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:border-blue-200 active:scale-[0.98] transition-all group"
                       >
                         <div className="flex justify-between items-start mb-2">
                           <div>
@@ -827,7 +980,7 @@ export default function HomePage() {
                             style={{ width: `${progress}%` }}
                           />
                         </div>
-                      </div>
+                      </Link>
                     );
                   })}
                 {/* Empty state for filter */}
