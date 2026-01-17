@@ -154,28 +154,37 @@ export class AppRegistry {
   /**
    * Create a new cross-app project
    */
-  async createProject(
-    project: Omit<
-      CrossAppProject, 
-      'id' | 'createdAt' | 'updatedAt' | 'actualBalance' | 'totalTime'
-    >
-  ): Promise<CrossAppProject> {
-    const projectId = crypto.randomUUID();
-    const projectDoc: CrossAppProject = {
-      ...project,
-      id: projectId,
-      actualBalance: { enjoy: 0, learn: 0, earn: 0, contribute: 0 },
-      totalTime: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+// Replace lines 139-144 in appRegistry.ts
+// lib/appRegistry.ts
 
-    await setDoc(
-      doc(db, `users/${this.userId}/projects/${projectId}`),
-      projectDoc
-    );
-    return projectDoc;
-  }
+async createProject(
+  project: Omit<
+    CrossAppProject, 
+    'id' | 'createdAt' | 'updatedAt' | 'actualBalance' | 'totalTime'
+  >
+): Promise<CrossAppProject> {
+  const projectId = crypto.randomUUID();
+  const projectDoc: CrossAppProject = {
+    ...project,
+    id: projectId,
+    // - Updated to align with RetireWise core perspectives
+    actualBalance: { 
+      builder: 0, 
+      contributor: 0, 
+      integrator: 0, 
+      experimenter: 0 
+    },
+    totalTime: 0,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  await setDoc(
+    doc(db, `users/${this.userId}/projects/${projectId}`),
+    projectDoc
+  );
+  return projectDoc;
+}
 
   /**
    * Get all active projects

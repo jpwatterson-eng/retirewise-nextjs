@@ -4,7 +4,7 @@ export type AppType = 'core' | 'managed' | 'integrated';
 export type AppStatus = 'active' | 'paused' | 'archived';
 export type IntegrationStatus = 'connected' | 'disconnected' | 'error';
 export type ProjectStatus = 'active' | 'paused' | 'completed';
-export type Perspective = 'enjoy' | 'learn' | 'earn' | 'contribute';
+export type Perspective = 'builder' | 'contributor' | 'integrator' | 'experimenter';
 
 export interface App {
   id: string;
@@ -52,6 +52,10 @@ export interface Integration {
   };
 }
 
+// types/app-registry.ts
+
+export type Perspective = 'builder' | 'contributor' | 'integrator' | 'experimenter'; // - Updated keys
+
 export interface CrossAppProject {
   id: string;
   name: string;
@@ -60,16 +64,16 @@ export interface CrossAppProject {
   apps: string[];
   status: ProjectStatus;
   balance: {
-    enjoy: number;
-    learn: number;
-    earn: number;
-    contribute: number;
+    builder: number;
+    contributor: number;
+    integrator: number;
+    experimenter: number;
   };
   actualBalance: {
-    enjoy: number;
-    learn: number;
-    earn: number;
-    contribute: number;
+    builder: number;
+    contributor: number;
+    integrator: number;
+    experimenter: number;
   };
   totalTime: number;
   createdAt: string;
