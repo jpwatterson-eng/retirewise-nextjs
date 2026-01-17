@@ -52,10 +52,6 @@ export interface Integration {
   };
 }
 
-// types/app-registry.ts
-
-export type Perspective = 'builder' | 'contributor' | 'integrator' | 'experimenter'; // - Updated keys
-
 export interface CrossAppProject {
   id: string;
   name: string;

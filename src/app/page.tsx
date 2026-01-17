@@ -26,6 +26,8 @@ import * as DB from "@/db/unifiedDB";
 import WeeklyGoalModal from "@/components/WeeklyGoalModal";
 import { saveWeeklyGoals } from "@/db/unifiedDB"; // Ensure this is exported
 import AI from "@/services/aiService";
+import { AppRegistry } from "@/lib/appRegistry";
+import { initializeCoreRegistry } from "@/lib/registryController";
 
 interface ProjectItem {
   id: string;
@@ -70,6 +72,9 @@ export default function HomePage() {
   const [healthReport, setHealthReport] = useState<any>(null);
   const [isSynthesizing, setIsSynthesizing] = useState(false);
 
+  const [registeredApps, setRegisteredApps] = useState<any[]>([]);
+  const [isRegistering, setIsRegistering] = useState(false);
+
   const fetchAllData = useCallback(async () => {
     if (!activeUser) return;
     setIsDataLoading(true);
@@ -103,7 +108,7 @@ export default function HomePage() {
         q = query(
           logsRef,
           where("date", ">=", dateGate),
-          where("sourceApp", "==", "retirewise")
+          where("sourceApp", "==", "retirewise"),
         );
       } else {
         // Show EVERYTHING (Portfolio View)
@@ -119,10 +124,9 @@ export default function HomePage() {
       // Calculate the sum
       const weeklySum = logs.reduce(
         (sum, log: any) => sum + (log.duration || 0),
-        0
+        0,
       );
 
-      // Update our new states
       setWeeklyTotal(weeklySum);
       setCurrentWeekLogs(logs);
 
@@ -140,10 +144,27 @@ export default function HomePage() {
     }
   }, [activeUser, viewMode]);
 
+  // The Registry Loader
+
+  const loadRegistry = useCallback(async () => {
+    if (!activeUser?.uid) return; // Use activeUser instead of hookUser
+    try {
+      const registry = new AppRegistry(activeUser.uid);
+      const apps = await registry.getApps();
+      setRegisteredApps(apps);
+    } catch (err) {
+      console.error("Failed to load registry:", err);
+    }
+  }, [activeUser?.uid]);
+
+  // Ensure the trigger also uses activeUser
+  useEffect(() => {
+    if (activeUser) {
+      loadRegistry();
+    }
+  }, [activeUser, loadRegistry]);
+
   // 2. The Initial Load Effect
-  //  useEffect(() => {
-  //    console.log("All exported members:", Object.keys(DB));
-  //  }, []);
 
   useEffect(() => {
     fetchAllData();
@@ -185,7 +206,7 @@ export default function HomePage() {
   useEffect(() => {
     // 1. Check if a retrospective has already been logged this week
     const hasClaimedThisWeek = currentWeekLogs.some(
-      (log) => log.type === "retrospective"
+      (log) => log.type === "retrospective",
     );
 
     // 2. Only show if goal is met AND it hasn't been claimed yet
@@ -217,7 +238,7 @@ export default function HomePage() {
 
       // 🔥 INTEGRATION: Look for the target in your DB-fetched weeklyTargets first
       const dbTarget = weeklyTargets?.targets?.find(
-        (t: any) => t.perspective.toLowerCase() === key
+        (t: any) => t.perspective.toLowerCase() === key,
       );
 
       const target = dbTarget?.targetHours || WEEKLY_TARGETS[key] || 10;
@@ -281,7 +302,7 @@ export default function HomePage() {
       if (!result.response || result.response.trim() === "") {
         console.log("AI was silent after tool use. Sending a nudge...");
         result = await AI.sendMessage(
-          "Excellent. Now, based on those results, provide the final JSON report as requested."
+          "Excellent. Now, based on those results, provide the final JSON report as requested.",
         );
       }
 
@@ -292,7 +313,7 @@ export default function HomePage() {
       if (firstBracket !== -1 && lastBracket !== -1) {
         const jsonString = result.response.substring(
           firstBracket,
-          lastBracket + 1
+          lastBracket + 1,
         );
         setHealthReport(JSON.parse(jsonString));
       } else {
@@ -319,7 +340,7 @@ export default function HomePage() {
     // For now, let's sum up all 'duration' fields from logs created today.
     return allProjects.reduce(
       (acc, proj) => acc + (proj.totalHoursLogged || 0),
-      0
+      0,
     );
   }, [allProjects]);
 
@@ -350,7 +371,7 @@ export default function HomePage() {
     if (weeklyTargets?.targets?.length > 0) {
       return weeklyTargets.targets.reduce(
         (sum: number, t: any) => sum + (t.targetHours || 0),
-        0
+        0,
       );
     }
     // Fallback to your old default if no targets exist yet
@@ -369,7 +390,7 @@ export default function HomePage() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-400 text-xs font-bold uppercase tracking-widest tracking-widest">
+          <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">
             Checking Auth...
           </p>
         </div>
@@ -808,7 +829,7 @@ export default function HomePage() {
                           <span
                             className={`text-xs font-black ${config.color.replace(
                               "bg-",
-                              "text-"
+                              "text-",
                             )}`}
                           >
                             {stat.current.toFixed(1)}h
@@ -863,7 +884,7 @@ export default function HomePage() {
                   currentWeekLogs
                     .sort(
                       (a, b) =>
-                        new Date(b.date).getTime() - new Date(a.date).getTime()
+                        new Date(b.date).getTime() - new Date(a.date).getTime(),
                     )
                     .slice(0, 5) // Just the last 5 entries
                     .map((log) => {
@@ -939,7 +960,7 @@ export default function HomePage() {
                   .filter(
                     (p) =>
                       !activeFilter ||
-                      p.perspective?.toLowerCase() === activeFilter
+                      p.perspective?.toLowerCase() === activeFilter,
                   )
                   .map((project) => {
                     // 1. Calculate progress using targetHours (fallback to 20 if empty)
@@ -985,13 +1006,108 @@ export default function HomePage() {
                   })}
                 {/* Empty state for filter */}
                 {allProjects.filter(
-                  (p) => p.perspective?.toLowerCase() === activeFilter
+                  (p) => p.perspective?.toLowerCase() === activeFilter,
                 ).length === 0 &&
                   activeFilter && (
                     <p className="text-center py-10 text-gray-400 text-sm italic">
                       No active {activeFilter} projects found.
                     </p>
                   )}
+              </div>
+            </section>
+
+            {/* 5. SYSTEM REGISTRY MANAGEMENT */}
+            <section className="mt-10 mb-20">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+                  System Registry
+                </h2>
+                <span className="text-[10px] font-bold text-green-500 bg-green-50 px-2 py-0.5 rounded-full">
+                  {registeredApps.length} Active{" "}
+                  {registeredApps.length === 1 ? "App" : "Apps"}
+                </span>
+              </div>
+
+              <div className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm">
+                {registeredApps.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <p className="text-gray-400 text-sm mb-4">
+                      Registry is currently empty.
+                    </p>
+                    <button
+                      onClick={async () => {
+                        if (!activeUser?.uid) {
+                          console.error(
+                            "No user ID found for registration. ActiveUser status:",
+                            activeUser,
+                          );
+                          return;
+                        }
+
+                        setIsRegistering(true); // 1. Start loading state
+                        try {
+                          console.log(
+                            "Starting registration for:",
+                            activeUser.uid,
+                          );
+
+                          // 2. Trigger the controller logic
+                          const result = await initializeCoreRegistry(
+                            activeUser.uid,
+                          );
+                          console.log("Registration result:", result);
+
+                          // 3. Force a refresh of the local app list
+                          await loadRegistry();
+                        } catch (err) {
+                          console.error("Registration flow failed:", err);
+                        } finally {
+                          setIsRegistering(false); // 4. End loading state
+                        }
+                      }}
+                      disabled={isRegistering}
+                      className="px-6 py-3 bg-gray-900 text-white rounded-2xl font-bold text-sm hover:bg-black disabled:opacity-50 transition-all"
+                    >
+                      {isRegistering
+                        ? "Registering..."
+                        : "Register RetireWise Core"}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-50">
+                    {registeredApps.map((app) => (
+                      <div
+                        key={app.id}
+                        className="p-4 flex items-center justify-between"
+                      >
+                        <div className="flex items-center gap-4">
+                          <span className="text-2xl">{app.icon}</span>
+                          <div>
+                            <h3 className="font-bold text-gray-900 text-sm">
+                              {app.name}
+                            </h3>
+                            <p className="text-[10px] text-gray-400 uppercase font-black tracking-tighter">
+                              ID: {app.id} • {app.type}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                          <span className="text-[10px] font-bold text-gray-500 uppercase">
+                            Live
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Placeholder for future apps */}
+                    <div className="p-4 bg-gray-50/50 border-t border-dashed border-gray-100 text-center">
+                      <p className="text-[10px] text-gray-400 font-medium italic">
+                        + Ready to register Managed or Integrated apps
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </section>
             <WeeklyGoalModal
