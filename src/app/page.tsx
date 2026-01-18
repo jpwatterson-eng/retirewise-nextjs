@@ -27,7 +27,10 @@ import WeeklyGoalModal from "@/components/WeeklyGoalModal";
 import { saveWeeklyGoals } from "@/db/unifiedDB"; // Ensure this is exported
 import AI from "@/services/aiService";
 import { AppRegistry } from "@/lib/appRegistry";
-import { initializeCoreRegistry } from "@/lib/registryController";
+import {
+  initializeCoreRegistry,
+  registerHealthApp,
+} from "@/lib/registryController";
 
 interface ProjectItem {
   id: string;
@@ -1078,9 +1081,9 @@ export default function HomePage() {
                     {registeredApps.map((app) => (
                       <div
                         key={app.id}
-                        className="p-4 flex items-center justify-between"
+                        className="p-3 flex items-center justify-between bg-gray-50 rounded-2xl"
                       >
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-3">
                           <span className="text-2xl">{app.icon}</span>
                           <div>
                             <h3 className="font-bold text-gray-900 text-sm">
@@ -1106,6 +1109,57 @@ export default function HomePage() {
                         + Ready to register Managed or Integrated apps
                       </p>
                     </div>
+                    {/* NEW: Specific button to register the Health App */}
+                    {!registeredApps.some(
+                      (app) => app.id === "health-vitality",
+                    ) && (
+                      <div className="p-4 bg-gray-50/50 border-t border-dashed border-gray-100 text-center">
+                        <button
+                          onClick={async () => {
+                            console.log("Button clicked! Checking user...");
+                            if (!activeUser?.uid) {
+                              console.error(
+                                "Registration aborted: No activeUser.uid found.",
+                                activeUser,
+                              );
+                              return;
+                            }
+                            setIsRegistering(true);
+                            try {
+                              console.log(
+                                "Attempting to register Health App for:",
+                                activeUser.uid,
+                              );
+
+                              const result = await registerHealthApp(
+                                activeUser.uid,
+                              );
+
+                              console.log(
+                                "Registration function finished. Result:",
+                                result,
+                              );
+
+                              // Refresh the local list so the UI updates
+                              await loadRegistry();
+                            } catch (err) {
+                              console.error(
+                                "CRITICAL: Health registration flow failed:",
+                                err,
+                              );
+                            } finally {
+                              setIsRegistering(false);
+                            }
+                          }}
+                          disabled={isRegistering}
+                          className="text-[10px] text-blue-600 font-black uppercase tracking-widest hover:text-blue-700 disabled:opacity-50"
+                        >
+                          {isRegistering
+                            ? "Registering..."
+                            : "+ Register Health & Vitality"}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

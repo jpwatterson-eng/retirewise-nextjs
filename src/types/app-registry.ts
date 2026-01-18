@@ -21,6 +21,8 @@ export interface App {
     url?: string;
     apiEndpoint?: string;
     syncEnabled?: boolean;
+    supportedMetrics?: string[];
+    [key: string]: any;          // ✨ Add this to allow future flexibility
   };
 }
 
