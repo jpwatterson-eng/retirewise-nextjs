@@ -1079,28 +1079,34 @@ export default function HomePage() {
                 ) : (
                   <div className="divide-y divide-gray-50">
                     {registeredApps.map((app) => (
-                      <div
+                      <Link
                         key={app.id}
-                        className="p-3 flex items-center justify-between bg-gray-50 rounded-2xl"
+                        href={
+                          app.id === "retirewise-core" ? "#" : `/apps/health`
+                        } // Direct link for Health
+                        className="flex items-center justify-between p-4 bg-gray-50/50 rounded-2xl hover:bg-blue-50 transition-colors group mb-3"
                       >
-                        <div className="flex items-center gap-3">
-                          <span className="text-2xl">{app.icon}</span>
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-white rounded-2xl shadow-sm flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+                            {app.icon}
+                          </div>
                           <div>
-                            <h3 className="font-bold text-gray-900 text-sm">
+                            <h3 className="font-bold text-sm text-gray-900">
                               {app.name}
                             </h3>
-                            <p className="text-[10px] text-gray-400 uppercase font-black tracking-tighter">
-                              ID: {app.id} • {app.type}
+                            <p className="text-[10px] text-gray-400 uppercase tracking-widest">
+                              {app.type}
                             </p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                          <span className="text-[10px] font-bold text-gray-500 uppercase">
-                            Live
+
+                        <div className="flex items-center gap-3">
+                          <span className="text-[10px] font-black text-blue-600 uppercase italic opacity-0 group-hover:opacity-100 transition-opacity">
+                            Open App →
                           </span>
+                          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                         </div>
-                      </div>
+                      </Link>
                     ))}
 
                     {/* Placeholder for future apps */}
@@ -1109,7 +1115,7 @@ export default function HomePage() {
                         + Ready to register Managed or Integrated apps
                       </p>
                     </div>
-                    {/* NEW: Specific button to register the Health App */}
+                    {/* NEW: Specific button to register the Health App 
                     {!registeredApps.some(
                       (app) => app.id === "health-vitality",
                     ) && (
@@ -1160,6 +1166,7 @@ export default function HomePage() {
                         </button>
                       </div>
                     )}
+*/}
                   </div>
                 )}
               </div>
