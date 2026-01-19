@@ -6,6 +6,7 @@ import { collection, addDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import Link from "next/link";
 import WorkoutLogger from "@/components/health/WorkoutLogger";
+import { setDoc, doc } from "firebase/firestore";
 
 export default function HealthAppPage() {
   const [activeUser, setActiveUser] = useState<any>(null);
@@ -20,19 +21,34 @@ export default function HealthAppPage() {
       // We'll use a consistent ID for this default project
       const defaultProjectId = "default-health-vitality";
 
-      // 2. Save the Detailed Health Log
+      // 1. Save detailed minutes to Health Logs (keeps it "Natural" for Health)
       await addDoc(collection(db, `users/${activeUser.uid}/health_logs`), {
         ...workoutData,
         appId: "health-vitality",
         createdAt: new Date().toISOString(),
       });
 
+      const decimalHours = parseFloat((workoutData.duration / 60).toFixed(2));
+
       // 3. Sync to the Hub (Standard Time Log)
       // This makes the workout show up in your main Ring and Project lists
+      await setDoc(
+        doc(db, `users/${activeUser.uid}/projects/${defaultProjectId}`),
+        {
+          id: defaultProjectId,
+          name: "MyWorkouts",
+          perspective: "integrator",
+          status: "active",
+          type: "managed-project",
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true },
+      );
+
       await addDoc(collection(db, `users/${activeUser.uid}/timeLogs`), {
         projectId: defaultProjectId,
-        projectName: "Health & Vitality",
-        duration: workoutData.duration,
+        projectName: "MyWorkouts",
+        duration: decimalHours,
         perspective: workoutData.perspective,
         timestamp: workoutData.timestamp,
         // We combine the Type and the Note for a rich Hub record
