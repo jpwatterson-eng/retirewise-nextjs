@@ -12,22 +12,37 @@ export default function WorkoutLogger({ onSave, onClose }: WorkoutLoggerProps) {
   const [type, setType] = useState("Strength");
   const [duration, setDuration] = useState(45);
   const [effort, setEffort] = useState(5);
+  const [note, setNote] = useState("");
   const [perspective, setPerspective] = useState("integrator");
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4">
-      <div className="bg-white w-full max-w-md rounded-[2.5rem] overflow-hidden shadow-2xl">
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white w-full max-w-md rounded-[2.5rem] overflow-hidden shadow-2xl max-h-[90vh] overflow-y-auto">
         <div className="p-8">
-          <div className="flex justify-between items-center mb-8">
+          <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-black text-slate-900 italic">
               Log Workout
             </h2>
-            <button onClick={onClose} className="text-slate-400">
+            <button onClick={onClose} className="p-2 text-slate-400">
               ✕
             </button>
           </div>
 
           <div className="space-y-6">
+            {/* Description Input */}
+            <div>
+              <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">
+                Description (e.g. 5km Run)
+              </label>
+              <input
+                type="text"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="What did you do?"
+                className="w-full bg-slate-50 border-none rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
             {/* Workout Type Selector */}
             <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
               {["Strength", "Cardio", "HIIT", "Yoga", "Mobility"].map((t) => (
@@ -116,6 +131,7 @@ export default function WorkoutLogger({ onSave, onClose }: WorkoutLoggerProps) {
                   type,
                   duration,
                   effort,
+                  note,
                   perspective,
                   timestamp: new Date().toISOString(),
                 })

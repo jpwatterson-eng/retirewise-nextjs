@@ -29,14 +29,18 @@ export default function HealthAppPage() {
 
       // 3. Sync to the Hub (Standard Time Log)
       // This makes the workout show up in your main Ring and Project lists
-      await addDoc(collection(db, `users/${activeUser.uid}/time_logs`), {
+      await addDoc(collection(db, `users/${activeUser.uid}/timeLogs`), {
         projectId: defaultProjectId,
         projectName: "Health & Vitality",
         duration: workoutData.duration,
-        perspective: workoutData.perspective, // integrator or experimenter
+        perspective: workoutData.perspective,
         timestamp: workoutData.timestamp,
-        note: `${workoutData.type} Workout (Effort: ${workoutData.effort}/10)`,
-        appId: "health-vitality", // Traceable back to this app
+        // We combine the Type and the Note for a rich Hub record
+        note: workoutData.note
+          ? `${workoutData.type}: ${workoutData.note}`
+          : workoutData.type,
+        effort: workoutData.effort, // Include effort in metadata
+        appId: "health-vitality",
         source: "managed-app",
       });
 
