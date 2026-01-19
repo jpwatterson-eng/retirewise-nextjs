@@ -19,7 +19,7 @@ export default function HealthAppPage() {
     try {
       // 1. Identify or Create the "Health & Vitality" Project in the Hub
       // We'll use a consistent ID for this default project
-      const defaultProjectId = "default-health-vitality";
+      const defaultProjectId = "zzKbUe0FfYmMW1RDr7SR";
 
       // 1. Save detailed minutes to Health Logs (keeps it "Natural" for Health)
       await addDoc(collection(db, `users/${activeUser.uid}/health_logs`), {
