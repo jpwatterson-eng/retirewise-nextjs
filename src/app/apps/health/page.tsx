@@ -15,24 +15,26 @@ import {
   orderBy,
   limit,
   onSnapshot,
+  where,
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import Link from "next/link";
 import WorkoutLogger from "@/components/health/WorkoutLogger";
+import MetricLogger from "@/components/health/MetricLogger";
 
 export default function HealthAppPage() {
   const [activeUser, setActiveUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showWorkoutLogger, setShowWorkoutLogger] = useState(false);
-
   const [logs, setLogs] = useState<any[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(true);
-
   const [projectGoal, setProjectGoal] = useState(20); // Default to your 20h target
   const [currentHours, setCurrentHours] = useState(0);
-
   const [weeklyQuota, setWeeklyQuota] = useState(7); // Default to 7h/week
   const [currentHoursThisWeek, setCurrentHoursThisWeek] = useState(0);
+  const [latestWeight, setLatestWeight] = useState<number | null>(null);
+  const [recentLogs, setRecentLogs] = useState([]);
+  const [showMetricLogger, setShowMetricLogger] = useState(false);
 
   // Calculate real stats from the logs array
   const stats = useMemo(() => {
@@ -161,6 +163,34 @@ export default function HealthAppPage() {
     return () => unsubscribe();
   }, [activeUser]);
 
+  // Fetch the most recent weight metric
+  useEffect(() => {
+    if (!activeUser?.uid) return;
+
+    const q = query(
+      collection(db, `users/${activeUser.uid}/health_metrics`),
+      where("type", "==", "Weight"),
+      orderBy("timestamp", "desc"),
+      limit(1),
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (!snapshot.empty) {
+        setLatestWeight(snapshot.docs[0].data().value);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [activeUser?.uid]);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setActiveUser(user);
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
   const handleSaveWorkout = async (workoutData: any) => {
     if (!activeUser) return;
 
@@ -231,15 +261,26 @@ export default function HealthAppPage() {
     }
   };
 
-  const [recentLogs, setRecentLogs] = useState([]);
+  const handleSaveMetric = async (metricData: {
+    type: string;
+    value: number;
+    unit: string;
+  }) => {
+    if (!activeUser) return;
+    const now = new Date();
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setActiveUser(user);
-      setLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
+    try {
+      await addDoc(collection(db, `users/${activeUser.uid}/health_metrics`), {
+        ...metricData,
+        timestamp: Timestamp.now(),
+        date: now.toISOString().split("T")[0],
+      });
+
+      setShowMetricLogger(false);
+    } catch (error) {
+      console.error("Error saving metric:", error);
+    }
+  };
 
   if (loading)
     return <div className="p-10 text-center">Loading Health System...</div>;
@@ -274,7 +315,6 @@ export default function HealthAppPage() {
                 <h1 className="text-4xl font-black italic tracking-tighter">
                   {stats.readiness}%
                 </h1>
-
                 {/* ✨ THE COACH MESSAGE */}
                 <div className="mt-4 flex items-start gap-2 max-w-[240px]">
                   <span className="text-sm">{coachStatus.icon}</span>
@@ -319,7 +359,6 @@ export default function HealthAppPage() {
         </div>
       </section>
 
-      {/* WEEKLY PROGRESS BAR */}
       {/* WEEKLY PROGRESS BAR - UPDATED TO USE WEEKLY LOGIC */}
       <section className="px-6 mb-8">
         <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-50">
@@ -360,12 +399,30 @@ export default function HealthAppPage() {
           <span className="text-2xl">💪</span>
           <span className="text-xs font-bold text-slate-700">Log Workout</span>
         </button>
-        <button className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col items-center gap-2 active:scale-95 transition-transform">
+
+        <button
+          onClick={() => setShowMetricLogger(true)}
+          className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col items-center gap-2 active:scale-95 transition-transform text-center"
+        >
           <span className="text-2xl">⚖️</span>
-          <span className="text-xs font-bold text-slate-700">
-            Record Metric
-          </span>
+          <div>
+            <span className="text-xs font-bold text-slate-700 block">
+              Record Metric
+            </span>
+            <span className="text-[10px] font-black text-blue-600 uppercase">
+              {latestWeight ? `${latestWeight} kg` : "Update"}
+            </span>
+          </div>
         </button>
+
+        {/* Add the Modal Renderer at the bottom of the main tag */}
+        {showMetricLogger && (
+          <MetricLogger
+            onSave={handleSaveMetric}
+            onClose={() => setShowMetricLogger(false)}
+            lastWeight={latestWeight}
+          />
+        )}
       </section>
       {showWorkoutLogger && (
         <WorkoutLogger
@@ -374,7 +431,6 @@ export default function HealthAppPage() {
         />
       )}
       {/* RECENT VITALITY LOGS */}
-
       <section className="px-6 pb-32">
         {/* Increased padding bottom from 20 to 32 */}
         <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 px-2">
