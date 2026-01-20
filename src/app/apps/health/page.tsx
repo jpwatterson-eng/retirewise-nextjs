@@ -2,11 +2,18 @@
 
 import { useState, useEffect } from "react";
 import { auth, db } from "@/config/firebase";
-import { collection, addDoc } from "firebase/firestore";
+import {
+  collection,
+  addDoc,
+  setDoc,
+  doc,
+  Timestamp,
+  increment,
+  updateDoc,
+} from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import Link from "next/link";
 import WorkoutLogger from "@/components/health/WorkoutLogger";
-import { setDoc, doc } from "firebase/firestore";
 
 export default function HealthAppPage() {
   const [activeUser, setActiveUser] = useState<any>(null);
@@ -16,56 +23,70 @@ export default function HealthAppPage() {
   const handleSaveWorkout = async (workoutData: any) => {
     if (!activeUser) return;
 
-    try {
-      // 1. Identify or Create the "Health & Vitality" Project in the Hub
-      // We'll use a consistent ID for this default project
-      const defaultProjectId = "zzKbUe0FfYmMW1RDr7SR";
+    // ✨ Move these ABOVE the try block to fix the "Red Squiggles"
+    const defaultProjectId = "zzKbUe0FfYmMW1RDr7SR";
+    const projectName = "Health & Vitality";
+    const decimalHours = parseFloat((workoutData.duration / 60).toFixed(2));
+    const now = new Date();
+    const isoString = now.toISOString();
 
-      // 1. Save detailed minutes to Health Logs (keeps it "Natural" for Health)
+    try {
+      // 1. Save detailed Health Log
       await addDoc(collection(db, `users/${activeUser.uid}/health_logs`), {
         ...workoutData,
         appId: "health-vitality",
-        createdAt: new Date().toISOString(),
+        createdAt: isoString,
       });
 
-      const decimalHours = parseFloat((workoutData.duration / 60).toFixed(2));
+      // 2. Sync to the Hub timeLogs
+      await addDoc(collection(db, `users/${activeUser.uid}/timeLogs`), {
+        userId: activeUser.uid,
+        projectId: defaultProjectId,
+        projectName: projectName,
+        duration: decimalHours,
+        perspective: "integrator",
+        timestamp: Timestamp.now(),
+        date: isoString,
+        createdAt: isoString,
+        updatedAt: isoString,
+        notes: `${workoutData.type}: ${workoutData.note}`,
+        source: "managed-app",
+        sourceApp: "health-vitality",
+      });
 
-      // 3. Sync to the Hub (Standard Time Log)
-      // This makes the workout show up in your main Ring and Project lists
+      // 3. Increment the Project Totals
+      const projectRef = doc(
+        db,
+        `users/${activeUser.uid}/projects/${defaultProjectId}`,
+      );
+      await updateDoc(projectRef, {
+        totalHoursLogged: increment(decimalHours),
+        lastLoggedAt: isoString,
+        updatedAt: isoString,
+      });
+
+      setShowWorkoutLogger(false);
+    } catch (error) {
+      // Now these variables are in scope!
+      console.error("Sync error, attempting project initialization...");
+      const projectRef = doc(
+        db,
+        `users/${activeUser.uid}/projects/${defaultProjectId}`,
+      );
       await setDoc(
-        doc(db, `users/${activeUser.uid}/projects/${defaultProjectId}`),
+        projectRef,
         {
           id: defaultProjectId,
-          name: "MyWorkouts",
+          name: projectName,
           perspective: "integrator",
           status: "active",
-          type: "managed-project",
-          updatedAt: new Date().toISOString(),
+          totalHoursLogged: decimalHours,
+          updatedAt: isoString,
         },
         { merge: true },
       );
 
-      await addDoc(collection(db, `users/${activeUser.uid}/timeLogs`), {
-        projectId: defaultProjectId,
-        projectName: "MyWorkouts",
-        duration: decimalHours,
-        perspective: workoutData.perspective,
-        timestamp: workoutData.timestamp,
-        // We combine the Type and the Note for a rich Hub record
-        note: workoutData.note
-          ? `${workoutData.type}: ${workoutData.note}`
-          : workoutData.type,
-        effort: workoutData.effort, // Include effort in metadata
-        appId: "health-vitality",
-        source: "managed-app",
-      });
-
-      console.log(
-        "Sync Complete: Detailed health data and Hub time-log saved.",
-      );
       setShowWorkoutLogger(false);
-    } catch (error) {
-      console.error("Sync failed:", error);
     }
   };
 
