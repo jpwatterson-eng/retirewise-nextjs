@@ -41,6 +41,8 @@ interface ProjectItem {
   targetHours?: number;
   updatedAt?: string;
   lastSessionDuration?: number;
+  latestWeight?: number;
+  latestRHR?: number;
 }
 
 const WEEKLY_TARGETS: Record<string, number> = {
@@ -219,6 +221,18 @@ export default function HomePage() {
       setShowRetro(false);
     }
   }, [weeklyTotal, isDataLoading, currentWeekLogs]);
+
+  const healthSync = useMemo(() => {
+    // Use your specific Health Project ID
+    const healthProject = allProjects.find(
+      (p) => p.id === "zzKbUe0FfYmMW1RDr7SR",
+    );
+
+    return {
+      weight: healthProject?.latestWeight || null,
+      rhr: healthProject?.latestRHR || null,
+    };
+  }, [allProjects]);
 
   // 2. LOGIC FROM PORTFOLIODASHBOARD
   const stats = useMemo(() => {
@@ -966,6 +980,9 @@ export default function HomePage() {
                       p.perspective?.toLowerCase() === activeFilter,
                   )
                   .map((project) => {
+                    // 1. Define the boolean here using your specific ID
+                    const isHealthProject =
+                      project.id === "zzKbUe0FfYmMW1RDr7SR";
                     // 1. Calculate progress using targetHours (fallback to 20 if empty)
                     const goal = project.targetHours || 20;
                     const current = project.totalHoursLogged || 0;
@@ -976,7 +993,11 @@ export default function HomePage() {
                       <Link
                         key={project.id}
                         href={`/projects/${project.id}`}
-                        className="block bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:border-blue-200 active:scale-[0.98] transition-all group"
+                        className={`block p-4 rounded-xl shadow-sm border transition-all group ${
+                          isHealthProject
+                            ? "bg-blue-50/40 border-blue-100"
+                            : "bg-white border-gray-100"
+                        }`}
                       >
                         <div className="flex justify-between items-start mb-2">
                           <div>
@@ -1003,6 +1024,28 @@ export default function HomePage() {
                             className="h-full bg-blue-600 transition-all duration-1000"
                             style={{ width: `${progress}%` }}
                           />
+                        </div>
+
+                        {/* Inside allProjects.map in Hub page.tsx */}
+                        <div className="text-right">
+                          <p className="text-sm font-black text-blue-600">
+                            {current.toFixed(1)}h
+                          </p>
+                          {isHealthProject && (
+                            <div className="flex flex-col items-end gap-0.5 mt-1">
+                              {project.latestWeight && (
+                                <p className="text-[9px] font-black text-slate-500 uppercase italic">
+                                  ⚖️ {project.latestWeight}kg
+                                </p>
+                              )}
+                              {project.latestRHR && (
+                                <span className="text-[9px] font-black text-red-500 uppercase flex items-center gap-1">
+                                  <span className="animate-pulse">❤️</span>{" "}
+                                  {project.latestRHR}
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </Link>
                     );

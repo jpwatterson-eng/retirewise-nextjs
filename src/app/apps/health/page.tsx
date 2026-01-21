@@ -22,6 +22,14 @@ import Link from "next/link";
 import WorkoutLogger from "@/components/health/WorkoutLogger";
 import MetricLogger from "@/components/health/MetricLogger";
 
+interface HealthMetric {
+  id: string;
+  type: "Weight" | "RHR"; // or string if you want it more flexible
+  value: number;
+  unit: string;
+  timestamp: Date;
+}
+
 export default function HealthAppPage() {
   const [activeUser, setActiveUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -35,6 +43,13 @@ export default function HealthAppPage() {
   const [latestWeight, setLatestWeight] = useState<number | null>(null);
   const [recentLogs, setRecentLogs] = useState([]);
   const [showMetricLogger, setShowMetricLogger] = useState(false);
+  const [weightTrend, setWeightTrend] = useState<{
+    delta: number;
+    text: string;
+  } | null>(null);
+  const [latestRHR, setLatestRHR] = useState<number | null>(null);
+  const [view, setView] = useState<"activity" | "metrics">("activity");
+  const [metrics, setMetrics] = useState<any[]>([]);
 
   // Calculate real stats from the logs array
   const stats = useMemo(() => {
@@ -76,30 +91,47 @@ export default function HealthAppPage() {
 
   const coachStatus = useMemo(() => {
     const score = stats.readiness;
+
+    // RHR Sensitivity Logic
+    const rhrAlert =
+      latestRHR && logs.length > 0
+        ? (() => {
+            // Simple average of RHR from recent metrics for baseline
+            // In a full build, we'd store a 'baselineRHR' in the project doc
+            const baselineRHR = 62; // Replace with your known healthy baseline if desired
+            const deviation = ((latestRHR - baselineRHR) / baselineRHR) * 100;
+            return deviation > 5; // Alert if 5% above baseline
+          })()
+        : false;
+
+    if (rhrAlert)
+      return {
+        msg: "System Alert: Elevated RHR detected. Prioritize sleep and hydration. Low intensity only.",
+        color: "text-amber-300",
+        icon: "⚠️",
+      };
+
     if (score >= 90)
       return {
         msg: "System Optimal. Prime day for high-intensity or PR attempts.",
         color: "text-emerald-300",
         icon: "🔥",
       };
+
+    // ... rest of your existing logic (75, 60, etc.)
     if (score >= 75)
       return {
         msg: "Good to go. Maintain momentum with a steady-state session.",
         color: "text-blue-200",
         icon: "⚡",
       };
-    if (score >= 60)
-      return {
-        msg: "Fatigue detected. Consider active recovery or lower effort.",
-        color: "text-orange-200",
-        icon: "🧘",
-      };
+
     return {
       msg: "Recovery required. High risk of overtraining. Rest today.",
       color: "text-red-200",
       icon: "🛑",
     };
-  }, [stats.readiness]);
+  }, [stats.readiness, latestRHR]);
 
   const hoursThisWeek = useMemo(() => {
     if (logs.length === 0) return 0;
@@ -163,20 +195,50 @@ export default function HealthAppPage() {
     return () => unsubscribe();
   }, [activeUser]);
 
-  // Fetch the most recent weight metric
+  // Fetch the most multiple metrics
+
   useEffect(() => {
     if (!activeUser?.uid) return;
 
+    // Fetch the last 30 entries to cover a full month of history
     const q = query(
       collection(db, `users/${activeUser.uid}/health_metrics`),
-      where("type", "==", "Weight"),
       orderBy("timestamp", "desc"),
-      limit(1),
+      limit(30),
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      if (!snapshot.empty) {
-        setLatestWeight(snapshot.docs[0].data().value);
+      const fetchedMetrics = snapshot.docs.map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          type: data.type,
+          value: data.value,
+          unit: data.unit,
+          timestamp: data.timestamp?.toDate() || new Date(),
+        } as HealthMetric; // This is the key "cast"
+      });
+
+      setMetrics(fetchedMetrics);
+
+      // 1. Extract Latest Values
+      const latestW = fetchedMetrics.find((m) => m.type === "Weight");
+      const latestR = fetchedMetrics.find((m) => m.type === "RHR");
+
+      if (latestW) setLatestWeight(latestW.value);
+      if (latestR) setLatestRHR(latestR.value);
+
+      // 2. Calculate Weight Trend (Compare latest weight to the one before it)
+      const weightHistory = fetchedMetrics.filter((m) => m.type === "Weight");
+      if (weightHistory.length >= 2) {
+        const current = weightHistory[0].value;
+        const previous = weightHistory[1].value;
+        const diff = current - previous;
+
+        setWeightTrend({
+          delta: diff,
+          text: diff > 0 ? `+${diff.toFixed(1)}kg` : `${diff.toFixed(1)}kg`,
+        });
       }
     });
 
@@ -270,15 +332,42 @@ export default function HealthAppPage() {
     const now = new Date();
 
     try {
+      // 1. Save to the historical health_metrics collection
       await addDoc(collection(db, `users/${activeUser.uid}/health_metrics`), {
         ...metricData,
         timestamp: Timestamp.now(),
         date: now.toISOString().split("T")[0],
       });
 
+      // 2. GLOBAL SYNC: Update the Project Document
+      // This allows the main Hub to display your latest weight/RHR
+      const projectRef = doc(
+        db,
+        `users/${activeUser.uid}/projects/zzKbUe0FfYmMW1RDr7SR`,
+      );
+
+      const projectUpdate: any = {};
+      if (metricData.type === "Weight") {
+        projectUpdate.latestWeight = metricData.value;
+        projectUpdate.lastWeightUpdate = Timestamp.now();
+      } else if (metricData.type === "RHR") {
+        projectUpdate.latestRHR = metricData.value; // Ensure RHR is also synced to the project
+      }
+
+      if (Object.keys(projectUpdate).length > 0) {
+        await updateDoc(projectRef, projectUpdate);
+      }
+
+      // 3. Update the User Profile for a global "Vitality" score
+      const userRef = doc(db, `users/${activeUser.uid}`);
+      await updateDoc(userRef, {
+        [`biometrics.${metricData.type.toLowerCase()}`]: metricData.value,
+        lastSeen: Timestamp.now(),
+      });
+
       setShowMetricLogger(false);
     } catch (error) {
-      console.error("Error saving metric:", error);
+      console.error("Error in Global Sync:", error);
     }
   };
 
@@ -390,108 +479,267 @@ export default function HealthAppPage() {
         </div>
       </section>
 
-      {/* QUICK ACTIONS */}
+      {/* BIOMETRICS GRID */}
+      <section className="px-6 grid grid-cols-2 gap-4 mb-8">
+        <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm relative overflow-hidden">
+          <div className="flex justify-between items-start mb-2">
+            <span className="text-xl">⚖️</span>
+            <span className="text-[8px] font-black text-slate-300 uppercase tracking-tighter">
+              Weight
+            </span>
+          </div>
+          <p className="text-2xl font-black text-slate-900 italic">
+            {latestWeight || "--"}
+            <span className="text-[10px] ml-1 text-slate-400">kg</span>
+          </p>
+          <div className="absolute -right-2 -bottom-2 opacity-5 text-4xl font-black italic select-none">
+            WT
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm relative overflow-hidden">
+          <div className="flex justify-between items-start mb-2">
+            <span className="text-xl text-red-500">❤️</span>
+            <span className="text-[8px] font-black text-slate-300 uppercase tracking-tighter">
+              Resting HR
+            </span>
+          </div>
+          <div className="flex items-baseline gap-1">
+            <p className="text-2xl font-black text-slate-900 italic">
+              {latestRHR || "--"}
+            </p>
+            <span className="text-[10px] text-slate-400 font-bold uppercase">
+              bpm
+            </span>
+          </div>
+
+          {/* Status Dot */}
+          {latestRHR && (
+            <div className="mt-2 flex items-center gap-1">
+              <div
+                className={`w-1.5 h-1.5 rounded-full ${latestRHR < 65 ? "bg-emerald-500" : "bg-amber-500"}`}
+              />
+              <span className="text-[8px] font-black text-slate-400 uppercase">
+                {latestRHR < 65 ? "Stable" : "Elevated"}
+              </span>
+            </div>
+          )}
+          <div className="absolute -right-2 -bottom-2 opacity-5 text-4xl font-black italic select-none">
+            HR
+          </div>
+        </div>
+      </section>
+
+      {/* UPDATED LOG ACTION BUTTONS */}
       <section className="px-6 grid grid-cols-2 gap-4 mb-8">
         <button
           onClick={() => setShowWorkoutLogger(true)}
-          className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col items-center gap-2 active:scale-95 transition-transform"
+          className="bg-slate-900 text-white p-4 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active:scale-95 transition-transform"
         >
-          <span className="text-2xl">💪</span>
-          <span className="text-xs font-bold text-slate-700">Log Workout</span>
+          💪 Log Workout
         </button>
-
         <button
           onClick={() => setShowMetricLogger(true)}
-          className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col items-center gap-2 active:scale-95 transition-transform text-center"
+          className="bg-blue-600 text-white p-4 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active:scale-95 transition-transform"
         >
-          <span className="text-2xl">⚖️</span>
-          <div>
-            <span className="text-xs font-bold text-slate-700 block">
-              Record Metric
-            </span>
-            <span className="text-[10px] font-black text-blue-600 uppercase">
-              {latestWeight ? `${latestWeight} kg` : "Update"}
-            </span>
-          </div>
+          ⚖️ Record Metric
         </button>
-
-        {/* Add the Modal Renderer at the bottom of the main tag */}
-        {showMetricLogger && (
-          <MetricLogger
-            onSave={handleSaveMetric}
-            onClose={() => setShowMetricLogger(false)}
-            lastWeight={latestWeight}
-          />
-        )}
       </section>
+      {/* Add the Modal Renderer at the bottom of the main tag */}
+      {showMetricLogger && (
+        <MetricLogger
+          onSave={handleSaveMetric}
+          onClose={() => setShowMetricLogger(false)}
+          lastWeight={latestWeight}
+        />
+      )}
+
       {showWorkoutLogger && (
         <WorkoutLogger
           onSave={handleSaveWorkout}
           onClose={() => setShowWorkoutLogger(false)}
         />
       )}
+
+      {/* WEIGHT TREND CARD */}
+      {weightTrend && (
+        <section className="px-6 mb-8">
+          <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-50 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div
+                className={`p-3 rounded-2xl ${weightTrend.delta <= 0 ? "bg-emerald-50 text-emerald-600" : "bg-orange-50 text-orange-600"}`}
+              >
+                {weightTrend.delta <= 0 ? "📉" : "📈"}
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">
+                  Weight Trend
+                </p>
+                <p className="text-sm font-bold text-slate-900">
+                  {weightTrend.delta <= 0 ? "Consolidated " : "Increased "}
+                  <span
+                    className={
+                      weightTrend.delta <= 0
+                        ? "text-emerald-600"
+                        : "text-orange-600"
+                    }
+                  >
+                    {weightTrend.text}
+                  </span>
+                </p>
+              </div>
+            </div>
+            <div className="text-[10px] font-black text-slate-300 uppercase italic">
+              Last 7 Days
+            </div>
+          </div>
+        </section>
+      )}
+      {/* Toggle Workouts v Biometrics */}
+      <section className="px-6 mb-4">
+        <div className="flex bg-slate-100 p-1 rounded-2xl">
+          <button
+            onClick={() => setView("activity")}
+            className={`flex-1 py-2 text-[10px] font-black uppercase rounded-xl transition-all ${view === "activity" ? "bg-white text-blue-600 shadow-sm" : "text-slate-400"}`}
+          >
+            Workouts
+          </button>
+          <button
+            onClick={() => setView("metrics")}
+            className={`flex-1 py-2 text-[10px] font-black uppercase rounded-xl transition-all ${view === "metrics" ? "bg-white text-blue-600 shadow-sm" : "text-slate-400"}`}
+          >
+            Biometrics
+          </button>
+        </div>
+      </section>
+
       {/* RECENT VITALITY LOGS */}
       <section className="px-6 pb-32">
         {/* Increased padding bottom from 20 to 32 */}
         <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 px-2">
           Recent Intelligence
         </h3>
-        <div className="space-y-3">
-          {loadingLogs ? (
-            <p className="text-center py-10 text-slate-400 animate-pulse">
-              Scanning records...
-            </p>
-          ) : logs.length === 0 ? (
-            <div className="bg-white p-8 rounded-3xl border border-dashed border-slate-200 text-center">
-              <p className="text-slate-400 text-sm italic">
-                No data synced yet.
+        {view === "metrics" ? (
+          <div className="space-y-3 pb-20">
+            {metrics.length === 0 ? (
+              <p className="text-center py-10 text-slate-400 italic text-sm">
+                No biometrics recorded.
               </p>
-            </div>
-          ) : (
-            logs.map((log) => (
-              <div
-                key={log.id}
-                className="bg-white p-4 rounded-3xl border border-slate-100 flex items-center justify-between shadow-sm"
-              >
-                <div className="flex items-center gap-4">
+            ) : (
+              metrics.map((m, idx) => {
+                // Find the PREVIOUS entry of the SAME TYPE to calculate the delta
+                const previousEntry = metrics
+                  .slice(idx + 1)
+                  .find((prev) => prev.type === m.type);
+                const diff = previousEntry
+                  ? m.value - previousEntry.value
+                  : null;
+
+                return (
                   <div
-                    className={`p-2 rounded-xl text-[10px] font-black uppercase ${
-                      log.type === "Strength"
-                        ? "bg-orange-50 text-orange-600"
-                        : log.type === "Cardio"
-                          ? "bg-emerald-50 text-emerald-600"
-                          : "bg-blue-50 text-blue-600"
-                    }`}
+                    key={m.id}
+                    className="bg-white p-4 rounded-3xl border border-slate-100 flex items-center justify-between shadow-sm"
                   >
-                    {log.type}
+                    <div className="flex items-center gap-4">
+                      <div
+                        className={`p-3 rounded-2xl text-xl ${m.type === "Weight" ? "bg-blue-50" : "bg-red-50"}`}
+                      >
+                        {m.type === "Weight" ? "⚖️" : "❤️"}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-900">
+                          {m.type}
+                        </p>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase">
+                          {m.timestamp.toLocaleDateString(undefined, {
+                            weekday: "short",
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <p className="text-sm font-black text-slate-900">
+                        {m.value}
+                        <span className="text-[10px] ml-0.5 text-slate-400">
+                          {m.unit}
+                        </span>
+                      </p>
+                      {diff !== null && (
+                        <p
+                          className={`text-[9px] font-black italic ${diff <= 0 ? "text-emerald-500" : "text-orange-500"}`}
+                        >
+                          {diff > 0
+                            ? `↑ +${diff.toFixed(1)}`
+                            : `↓ ${diff.toFixed(1)}`}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-bold text-slate-900 leading-none mb-1">
-                      {log.note || log.type}
-                    </p>
-                    <p className="text-[10px] text-slate-400 flex items-center gap-2">
-                      Effort:{" "}
-                      <span className="font-bold text-slate-600">
-                        {log.effort}/10
-                      </span>
-                      • {log.perspective}
-                    </p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs font-black text-slate-900">
-                    {log.duration}m
-                  </p>
-                  <p className="text-[8px] text-slate-300 font-bold uppercase">
-                    {new Date(log.timestamp).toLocaleDateString(undefined, {
-                      weekday: "short",
-                    })}
-                  </p>
-                </div>
+                );
+              })
+            )}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {loadingLogs ? (
+              <p className="text-center py-10 text-slate-400 animate-pulse">
+                Scanning records...
+              </p>
+            ) : logs.length === 0 ? (
+              <div className="bg-white p-8 rounded-3xl border border-dashed border-slate-200 text-center">
+                <p className="text-slate-400 text-sm italic">
+                  No data synced yet.
+                </p>
               </div>
-            ))
-          )}
-        </div>
+            ) : (
+              logs.map((log) => (
+                <div
+                  key={log.id}
+                  className="bg-white p-4 rounded-3xl border border-slate-100 flex items-center justify-between shadow-sm"
+                >
+                  <div className="flex items-center gap-4">
+                    <div
+                      className={`p-2 rounded-xl text-[10px] font-black uppercase ${
+                        log.type === "Strength"
+                          ? "bg-orange-50 text-orange-600"
+                          : log.type === "Cardio"
+                            ? "bg-emerald-50 text-emerald-600"
+                            : "bg-blue-50 text-blue-600"
+                      }`}
+                    >
+                      {log.type}
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-900 leading-none mb-1">
+                        {log.note || log.type}
+                      </p>
+                      <p className="text-[10px] text-slate-400 flex items-center gap-2">
+                        Effort:{" "}
+                        <span className="font-bold text-slate-600">
+                          {log.effort}/10
+                        </span>
+                        • {log.perspective}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs font-black text-slate-900">
+                      {log.duration}m
+                    </p>
+                    <p className="text-[8px] text-slate-300 font-bold uppercase">
+                      {new Date(log.timestamp).toLocaleDateString(undefined, {
+                        weekday: "short",
+                      })}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
       </section>
     </main>
   );
