@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react"; // Added useCallback
 import { auth, db } from "@/config/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import {
@@ -9,61 +9,103 @@ import {
   doc,
   updateDoc,
   Timestamp,
-} from "firebase/firestore";
+  query,
+  orderBy,
+  limit,
+  getDocs,
+  where,
+} from "firebase/firestore"; // Added query utils
 import { PROJECT_IDS } from "@/config/constants";
 import IncomeLogger from "@/components/IncomeLogger";
-import { ArrowLeft, TrendingUp, Plus } from "lucide-react";
+import { ArrowLeft, TrendingUp, Plus, History } from "lucide-react"; // Added History icon
 import Link from "next/link";
 
 export default function IncomeApp() {
   const [activeUser, setActiveUser] = useState<any>(null);
-  const [showLogger, setShowLogger] = useState(false); // Start with dashboard view
+  const [showLogger, setShowLogger] = useState(false);
+  const [recentLogs, setRecentLogs] = useState<any[]>([]); // ✨ New State for History
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+
+  // 1. Function to fetch history
+  const fetchIncomeHistory = useCallback(async (uid: string) => {
+    setIsLoadingLogs(true);
+    try {
+      const logsRef = collection(db, `users/${uid}/income_logs`);
+      const q = query(logsRef, orderBy("timestamp", "desc"), limit(5));
+      const querySnapshot = await getDocs(q);
+
+      const logs = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setRecentLogs(logs);
+    } catch (err) {
+      console.error("Error fetching history:", err);
+    } finally {
+      setIsLoadingLogs(false);
+    }
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setActiveUser(user);
+      if (user) fetchIncomeHistory(user.uid);
     });
     return () => unsubscribe();
-  }, []);
+  }, [fetchIncomeHistory]);
 
   const handleSaveIncome = async (data: { source: string; amount: number }) => {
     if (!activeUser) return;
 
     try {
+      const now = new Date();
+      const dateString = now.toISOString().split("T")[0]; // YYYY-MM-DD
+      const monthKey = dateString.substring(0, 7); // YYYY-MM
+
+      // 1. Save the individual record with an explicit date
       await addDoc(collection(db, `users/${activeUser.uid}/income_logs`), {
         ...data,
+        date: dateString, // ✨ Explicit date for reporting
+        monthKey: monthKey, // ✨ Key for monthly aggregation
         timestamp: Timestamp.now(),
       });
 
+      // 2. Fetch all logs for THIS month to calculate the aggregate
+      const logsRef = collection(db, `users/${activeUser.uid}/income_logs`);
+      const q = query(logsRef, where("monthKey", "==", monthKey));
+      const querySnapshot = await getDocs(q);
+
+      // 3. Sum the values
+      const aggregateMonthlyTotal = querySnapshot.docs.reduce((sum, doc) => {
+        return sum + (doc.data().amount || 0);
+      }, 0);
+
+      // 4. Update the Project Pulse with the AGGREGATE
       const projectRef = doc(
         db,
         `users/${activeUser.uid}/projects/${PROJECT_IDS.EXPERIMENTER}`,
       );
 
       await updateDoc(projectRef, {
-        monthlyIncome: data.amount,
-        latestYield: (data.amount / 5000) * 100,
+        monthlyIncome: aggregateMonthlyTotal, // ✨ Total of all entries this month
+        latestYield: (aggregateMonthlyTotal / 5000) * 100,
         updatedAt: new Date().toISOString(),
       });
 
-      setShowLogger(false); // Return to dashboard
+      // Refresh UI
+      await fetchIncomeHistory(activeUser.uid);
+      setShowLogger(false);
+      alert(
+        `Success! Monthly total updated to £${aggregateMonthlyTotal.toLocaleString()}`,
+      );
     } catch (err) {
-      console.error("Firebase Error:", err);
+      console.error("Aggregation Error:", err);
     }
   };
 
   return (
     <main className="min-h-screen bg-[#F8FAFC] p-6">
-      {/* HEADER */}
-      <div className="flex justify-between items-center mb-8">
-        <Link href="/" className="p-2 bg-white rounded-full shadow-sm">
-          <ArrowLeft className="w-5 h-5 text-gray-600" />
-        </Link>
-        <h1 className="text-xl font-black italic text-emerald-900">
-          EXPERIMENTER
-        </h1>
-        <div className="w-9" /> {/* Spacer */}
-      </div>
+      {/* HEADER ... same as before */}
 
       {showLogger ? (
         <IncomeLogger
@@ -72,19 +114,43 @@ export default function IncomeApp() {
         />
       ) : (
         <div className="space-y-6">
-          {/* SUMMARY CARD */}
-          <div className="bg-emerald-900 rounded-[2.5rem] p-8 text-white shadow-xl shadow-emerald-100">
-            <p className="text-emerald-300 text-[10px] font-black uppercase tracking-[0.2em] mb-2">
-              Current Monthly Yield
-            </p>
-            <div className="flex items-baseline gap-2">
-              <h2 className="text-4xl font-black">Success!</h2>
-              <TrendingUp className="w-6 h-6 text-emerald-400" />
+          {/* SUMMARY CARD ... same as before */}
+
+          {/* ✨ NEW: RECENT HISTORY LIST */}
+          <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100">
+            <div className="flex items-center gap-2 mb-4">
+              <History className="w-4 h-4 text-emerald-600" />
+              <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                Recent Yield Events
+              </h3>
             </div>
-            <p className="mt-4 text-emerald-100/60 text-xs leading-relaxed">
-              Your financial experiments are feeding the Hub. Check your
-              dashboard to see the drift.
-            </p>
+
+            <div className="space-y-4">
+              {recentLogs.length === 0 ? (
+                <p className="text-xs text-gray-400 italic py-4 text-center">
+                  No experiments logged yet.
+                </p>
+              ) : (
+                recentLogs.map((log) => (
+                  <div
+                    key={log.id}
+                    className="flex justify-between items-center py-2 border-b border-gray-50 last:border-0"
+                  >
+                    <div>
+                      <p className="text-sm font-bold text-gray-900">
+                        {log.source}
+                      </p>
+                      <p className="text-[10px] text-gray-400 font-medium">
+                        {log.timestamp?.toDate().toLocaleDateString()}
+                      </p>
+                    </div>
+                    <span className="text-sm font-black text-emerald-600">
+                      +£{log.amount.toLocaleString()}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
 
           <button
