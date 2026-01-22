@@ -21,6 +21,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import Link from "next/link";
 import WorkoutLogger from "@/components/health/WorkoutLogger";
 import MetricLogger from "@/components/health/MetricLogger";
+import { PROJECT_IDS } from "@/config/constants";
 
 interface HealthMetric {
   id: string;
@@ -179,7 +180,7 @@ export default function HealthAppPage() {
 
     const projectRef = doc(
       db,
-      `users/${activeUser.uid}/projects/zzKbUe0FfYmMW1RDr7SR`,
+      `users/${activeUser.uid}/projects/${PROJECT_IDS.HEALTH}`,
     );
 
     const unsubscribe = onSnapshot(projectRef, (docSnap) => {
@@ -257,7 +258,7 @@ export default function HealthAppPage() {
     if (!activeUser) return;
 
     // ✨ Move these ABOVE the try block to fix the "Red Squiggles"
-    const defaultProjectId = "zzKbUe0FfYmMW1RDr7SR";
+    const defaultProjectId = PROJECT_IDS.HEALTH;
     const projectName = "Health & Vitality";
     const decimalHours = parseFloat((workoutData.duration / 60).toFixed(2));
     const now = new Date();
@@ -343,7 +344,7 @@ export default function HealthAppPage() {
       // This allows the main Hub to display your latest weight/RHR
       const projectRef = doc(
         db,
-        `users/${activeUser.uid}/projects/zzKbUe0FfYmMW1RDr7SR`,
+        `users/${activeUser.uid}/projects/${PROJECT_IDS.HEALTH}`,
       );
 
       const projectUpdate: any = {};

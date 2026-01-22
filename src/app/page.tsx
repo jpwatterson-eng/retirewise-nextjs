@@ -30,7 +30,9 @@ import { AppRegistry } from "@/lib/appRegistry";
 import {
   initializeCoreRegistry,
   registerHealthApp,
+  registerIncomeApp,
 } from "@/lib/registryController";
+import { PROJECT_IDS } from "@/config/constants";
 
 interface ProjectItem {
   id: string;
@@ -43,6 +45,8 @@ interface ProjectItem {
   lastSessionDuration?: number;
   latestWeight?: number;
   latestRHR?: number;
+  latestYield?: number; // e.g., 12 for 12% coverage
+  monthlyIncome?: number; // Absolute value
 }
 
 const WEEKLY_TARGETS: Record<string, number> = {
@@ -224,9 +228,7 @@ export default function HomePage() {
 
   const healthSync = useMemo(() => {
     // Use your specific Health Project ID
-    const healthProject = allProjects.find(
-      (p) => p.id === "zzKbUe0FfYmMW1RDr7SR",
-    );
+    const healthProject = allProjects.find((p) => p.id === PROJECT_IDS.HEALTH);
 
     return {
       weight: healthProject?.latestWeight || null,
@@ -981,9 +983,12 @@ export default function HomePage() {
                   )
                   .map((project) => {
                     // 1. Define the boolean here using your specific ID
-                    const isHealthProject =
-                      project.id === "zzKbUe0FfYmMW1RDr7SR";
+                    const isHealthProject = project.id === PROJECT_IDS.HEALTH;
+                    // Define your Experimenter Project ID here once created
+                    const isIncomeProject =
+                      project.id === PROJECT_IDS.EXPERIMENTER;
                     // 1. Calculate progress using targetHours (fallback to 20 if empty)
+
                     const goal = project.targetHours || 20;
                     const current = project.totalHoursLogged || 0;
                     const progress = Math.min((current / goal) * 100, 100);
@@ -994,7 +999,7 @@ export default function HomePage() {
                         key={project.id}
                         href={`/projects/${project.id}`}
                         className={`block p-4 rounded-xl shadow-sm border transition-all group ${
-                          isHealthProject
+                          isHealthProject || isIncomeProject
                             ? "bg-blue-50/40 border-blue-100"
                             : "bg-white border-gray-100"
                         }`}
@@ -1031,6 +1036,26 @@ export default function HomePage() {
                           <p className="text-sm font-black text-blue-600">
                             {current.toFixed(1)}h
                           </p>
+                          {/* Financial Pulse */}
+                          {isIncomeProject && (
+                            <div className="flex flex-col items-end gap-1 mt-1">
+                              {project.latestYield !== undefined && (
+                                <span className="text-[10px] font-black text-emerald-600 italic">
+                                  💰 YIELD:{" "}
+                                  {Number(project.latestYield).toFixed(1)}%
+                                </span>
+                              )}
+                              {project.monthlyIncome !== undefined && (
+                                <span className="text-[9px] font-bold text-slate-400">
+                                  INCOME: £
+                                  {Number(
+                                    project.monthlyIncome,
+                                  ).toLocaleString()}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          {/* Health Pulse */}
                           {isHealthProject && (
                             <div className="flex flex-col items-end gap-0.5 mt-1">
                               {project.latestWeight && (
@@ -1124,9 +1149,12 @@ export default function HomePage() {
                     {registeredApps.map((app) => (
                       <Link
                         key={app.id}
+                        // 🔥 DYNAMIC ROUTING: Use metadata path if it exists, fallback to #
                         href={
-                          app.id === "retirewise-core" ? "#" : `/apps/health`
-                        } // Direct link for Health
+                          app.id === "retirewise-core"
+                            ? "#"
+                            : app.metadata?.path || "#"
+                        }
                         className="flex items-center justify-between p-4 bg-gray-50/50 rounded-2xl hover:bg-blue-50 transition-colors group mb-3"
                       >
                         <div className="flex items-center gap-4">
@@ -1158,7 +1186,8 @@ export default function HomePage() {
                         + Ready to register Managed or Integrated apps
                       </p>
                     </div>
-                    {/* NEW: Specific button to register the Health App 
+                    {/* Block-out */}
+                    {/* Register Health & Vitalit App 
                     {!registeredApps.some(
                       (app) => app.id === "health-vitality",
                     ) && (
@@ -1209,7 +1238,34 @@ export default function HomePage() {
                         </button>
                       </div>
                     )}
-*/}
+
+                    {/* Register Alternative Income 
+                    {!registeredApps.some(
+                      (app) => app.id === "income-experimenter",
+                    ) && (
+                      <div className="p-4 bg-gray-50/50 border-t border-dashed border-gray-100 text-center">
+                        <button
+                          onClick={async () => {
+                            setIsRegistering(true);
+                            try {
+                              await registerIncomeApp(activeUser.uid);
+                              await loadRegistry();
+                            } catch (err) {
+                              console.error("Income registration failed:", err);
+                            } finally {
+                              setIsRegistering(false);
+                            }
+                          }}
+                          disabled={isRegistering}
+                          className="text-[10px] text-emerald-600 font-black uppercase tracking-widest hover:text-emerald-700 disabled:opacity-50"
+                        >
+                          {isRegistering
+                            ? "Registering..."
+                            : "+ Register Alternative Income"}
+                        </button>
+                      </div>
+                    )}
+                    */}
                   </div>
                 )}
               </div>

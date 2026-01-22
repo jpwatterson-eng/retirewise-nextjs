@@ -59,3 +59,31 @@ export const registerHealthApp = async (userId: string) => {
   console.log("RegistryController: Successfully saved to Firestore.");
   return { status: 'success', app: healthApp };
 };
+
+
+export const registerIncomeApp = async (userId: string) => {
+  const registry = new AppRegistry(userId);
+  
+  // 1. Safety Check: Prevent duplicate registration
+  const existingApps = await registry.getApps();
+  const isRegistered = existingApps.some(app => app.name === "Alternative Income");
+  
+  if (isRegistered) return { status: 'already_registered' };
+
+  // 2. Register the App (Removed 'id' to fix TypeScript error)
+  const incomeApp = await registry.registerApp({
+    name: "Alternative Income",
+    type: "managed", // lowercase as requested
+    status: "active",
+    icon: "💰",
+    description: "Tracks micro-income experiments, dividends, and passive yield.",
+    capabilities: ["income-tracking", "yield-analysis", "runway-calculation"],
+    metadata: {
+      version: "1.0.0",
+      syncEnabled: true,
+      path: "/apps/income" // Moved path to metadata if not in core App type
+    }
+  });
+
+  return { status: 'success', app: incomeApp };
+};
