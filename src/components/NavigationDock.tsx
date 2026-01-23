@@ -21,7 +21,8 @@ export default function NavigationDock() {
     { name: "Log", href: "/quick-log", icon: Plus, isAction: true },
     { name: "Yield", href: "/apps/income", icon: Landmark },
     { name: "Journal", href: "/journal", icon: BookOpen }, // 📖 Restored
-    // We can move AI/Chat to a header icon or a secondary menu later
+    // We can move AI/Chat to a header icon or a secondary menu later - top Nv (23/01/2026)
+    // { href: "/chat", icon: MessageCircle, label: "AI" }
   ];
 
   return (

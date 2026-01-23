@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Home as HomeIcon, MessageSquare, BookOpen, BarChart3, Settings, Plus, FolderOpen, Lightbulb, Target, LogOut } from 'lucide-react';
+import { Home as HomeIcon, MessageSquare, BookOpen, BarChart3, Settings, Plus, FolderOpen, Lightbulb, Target, LogOut,MessageCircle } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { auth } from '@/config/firebase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -43,7 +43,9 @@ export function AppHeader() {
         <div className="flex flex-col items-end gap-1">
           {/* Top Row: Navigation Icons */}
           <div className="flex items-center gap-3">
-
+        <Link href="/chat" className="text-gray-400 hover:text-blue-600 p-1 transition-colors">
+          <MessageCircle className="w-5 h-5" />
+        </Link>
         <Link href="/projects" className="text-gray-400 hover:text-blue-600 p-1 transition-colors">
           <FolderOpen className="w-5 h-5" />
         </Link>
