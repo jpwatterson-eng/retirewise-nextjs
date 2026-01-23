@@ -4,6 +4,7 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import UserInitializer from '@/components/UserInitializer';
 import { MobileNav } from '@/components/MobileNav';
 import { AppHeader } from '@/components/AppLayout'
+import NavigationDock from '@/components/NavigationDock';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -26,10 +27,6 @@ export const viewport = {
 };
 
 
-// <body className={inter.className}>
-
-// app/layout.js
-// app/layout.js
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className="h-full">
@@ -48,7 +45,8 @@ export default function RootLayout({ children }) {
                 {children}
               </main>
               
-              <MobileNav />
+              {/* <MobileNav /> */}
+              <NavigationDock />
             </div>
           </UserInitializer>
         </AuthProvider>

@@ -960,121 +960,91 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* 4. ACTIVE PROJECTS LIST */}
-            <section>
+            {/* 4. ACTIVE PROJECTS LIST (mb-32) */}
+            <section className="mb-8">
+              {" "}
+              {/* Increased margin to clear the Dock */}
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
-                  Active Projects
+                <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">
+                  Pillar Intelligence
                 </h2>
                 <Link
                   href="/projects"
-                  className="text-blue-600 text-xs font-bold"
+                  className="text-blue-600 text-[10px] font-black uppercase tracking-widest"
                 >
-                  View All
+                  Manage All →
                 </Link>
               </div>
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {allProjects
                   .filter((p) => p.status === "active")
-                  .filter(
-                    (p) =>
-                      !activeFilter ||
-                      p.perspective?.toLowerCase() === activeFilter,
-                  )
                   .map((project) => {
-                    // 1. Define the boolean here using your specific ID
-                    const isHealthProject = project.id === PROJECT_IDS.HEALTH;
-                    // Define your Experimenter Project ID here once created
-                    const isIncomeProject =
-                      project.id === PROJECT_IDS.EXPERIMENTER;
-                    // 1. Calculate progress using targetHours (fallback to 20 if empty)
-
-                    const goal = project.targetHours || 20;
+                    const isHealth = project.id === PROJECT_IDS.HEALTH;
+                    const isIncome = project.id === PROJECT_IDS.EXPERIMENTER;
+                    const goal = project.targetHours || 10;
                     const current = project.totalHoursLogged || 0;
                     const progress = Math.min((current / goal) * 100, 100);
 
                     return (
-                      /* 🔥 ADDED: Link wrapper to navigate to Project Details */
-                      <Link
+                      <div
                         key={project.id}
-                        href={`/projects/${project.id}`}
-                        className={`block p-4 rounded-xl shadow-sm border transition-all group ${
-                          isHealthProject || isIncomeProject
-                            ? "bg-blue-50/40 border-blue-100"
-                            : "bg-white border-gray-100"
-                        }`}
+                        className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-gray-100"
                       >
-                        <div className="flex justify-between items-start mb-2">
+                        <div className="flex justify-between items-start mb-4">
                           <div>
-                            <h3 className="font-bold text-gray-900">
-                              {project.name}
-                            </h3>
-                            <span className="text-[10px] px-2 py-0.5 bg-gray-100 rounded-full text-gray-500 uppercase font-bold">
+                            <span className="text-[9px] font-black text-blue-500 uppercase tracking-[0.2em] block mb-1">
                               {project.perspective}
                             </span>
+                            <h3 className="font-bold text-gray-900 leading-tight">
+                              {project.name}
+                            </h3>
                           </div>
                           <div className="text-right">
-                            <p className="text-sm font-black text-blue-600">
+                            <p className="text-xl font-black text-gray-900 leading-none">
                               {current.toFixed(1)}h
                             </p>
-                            <p className="text-[9px] text-gray-400">
-                              of {goal}h
+                            <p className="text-[9px] font-bold text-gray-400 uppercase italic">
+                              Weekly Momentum
                             </p>
                           </div>
                         </div>
 
-                        {/* The Progress Bar */}
-                        <div className="relative w-full h-2 bg-gray-100 rounded-full overflow-hidden mt-2">
+                        {/* Specialized Pulse Data */}
+                        {(isHealth || isIncome) && (
+                          <div className="mb-4 p-3 bg-gray-50 rounded-2xl flex justify-between items-center border border-gray-100/50">
+                            {isIncome ? (
+                              <>
+                                <span className="text-[10px] font-black text-emerald-600 uppercase italic">
+                                  💰 Yield: {project.latestYield?.toFixed(1)}%
+                                </span>
+                                <span className="text-[10px] font-black text-slate-800">
+                                  £{project.monthlyIncome?.toLocaleString()}
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <span className="text-[10px] font-black text-red-500 flex items-center gap-1">
+                                  ❤️ {project.latestRHR || "--"} RHR
+                                </span>
+                                <span className="text-[10px] font-black text-slate-500 italic">
+                                  ⚖️ {project.latestWeight || "--"}kg
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Progress Track */}
+                        <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-blue-600 transition-all duration-1000"
+                            className={`h-full transition-all duration-1000 ${isIncome ? "bg-emerald-500" : isHealth ? "bg-red-400" : "bg-blue-500"}`}
                             style={{ width: `${progress}%` }}
                           />
                         </div>
-
-                        {/* Inside allProjects.map in Hub page.tsx */}
-                        <div className="text-right">
-                          <p className="text-sm font-black text-blue-600">
-                            {current.toFixed(1)}h
-                          </p>
-                          {/* Financial Pulse */}
-                          {isIncomeProject && (
-                            <div className="flex flex-col items-end gap-1 mt-1">
-                              {project.latestYield !== undefined && (
-                                <span className="text-[10px] font-black text-emerald-600 italic">
-                                  💰 YIELD:{" "}
-                                  {Number(project.latestYield).toFixed(1)}%
-                                </span>
-                              )}
-                              {project.monthlyIncome !== undefined && (
-                                <span className="text-[9px] font-bold text-slate-400">
-                                  INCOME: £
-                                  {Number(
-                                    project.monthlyIncome,
-                                  ).toLocaleString()}
-                                </span>
-                              )}
-                            </div>
-                          )}
-                          {/* Health Pulse */}
-                          {isHealthProject && (
-                            <div className="flex flex-col items-end gap-0.5 mt-1">
-                              {project.latestWeight && (
-                                <p className="text-[9px] font-black text-slate-500 uppercase italic">
-                                  ⚖️ {project.latestWeight}kg
-                                </p>
-                              )}
-                              {project.latestRHR && (
-                                <span className="text-[9px] font-black text-red-500 uppercase flex items-center gap-1">
-                                  <span className="animate-pulse">❤️</span>{" "}
-                                  {project.latestRHR}
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </Link>
+                      </div>
                     );
                   })}
+
                 {/* Empty state for filter */}
                 {allProjects.filter(
                   (p) => p.perspective?.toLowerCase() === activeFilter,
@@ -1085,191 +1055,10 @@ export default function HomePage() {
                     </p>
                   )}
               </div>
+              {/* ✨ THE FIX: Explicit Spacer at the end of the scrollable content */}
+              <div className="h-24 w-full" aria-hidden="true" />
             </section>
 
-            {/* 5. SYSTEM REGISTRY MANAGEMENT */}
-            <section className="mt-10 mb-20">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
-                  System Registry
-                </h2>
-                <span className="text-[10px] font-bold text-green-500 bg-green-50 px-2 py-0.5 rounded-full">
-                  {registeredApps.length} Active{" "}
-                  {registeredApps.length === 1 ? "App" : "Apps"}
-                </span>
-              </div>
-
-              <div className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm">
-                {registeredApps.length === 0 ? (
-                  <div className="p-8 text-center">
-                    <p className="text-gray-400 text-sm mb-4">
-                      Registry is currently empty.
-                    </p>
-                    <button
-                      onClick={async () => {
-                        if (!activeUser?.uid) {
-                          console.error(
-                            "No user ID found for registration. ActiveUser status:",
-                            activeUser,
-                          );
-                          return;
-                        }
-
-                        setIsRegistering(true); // 1. Start loading state
-                        try {
-                          console.log(
-                            "Starting registration for:",
-                            activeUser.uid,
-                          );
-
-                          // 2. Trigger the controller logic
-                          const result = await initializeCoreRegistry(
-                            activeUser.uid,
-                          );
-                          console.log("Registration result:", result);
-
-                          // 3. Force a refresh of the local app list
-                          await loadRegistry();
-                        } catch (err) {
-                          console.error("Registration flow failed:", err);
-                        } finally {
-                          setIsRegistering(false); // 4. End loading state
-                        }
-                      }}
-                      disabled={isRegistering}
-                      className="px-6 py-3 bg-gray-900 text-white rounded-2xl font-bold text-sm hover:bg-black disabled:opacity-50 transition-all"
-                    >
-                      {isRegistering
-                        ? "Registering..."
-                        : "Register RetireWise Core"}
-                    </button>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-gray-50">
-                    {registeredApps.map((app) => (
-                      <Link
-                        key={app.id}
-                        // 🔥 DYNAMIC ROUTING: Use metadata path if it exists, fallback to #
-                        href={
-                          app.id === "retirewise-core"
-                            ? "#"
-                            : app.metadata?.path || "#"
-                        }
-                        className="flex items-center justify-between p-4 bg-gray-50/50 rounded-2xl hover:bg-blue-50 transition-colors group mb-3"
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 bg-white rounded-2xl shadow-sm flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
-                            {app.icon}
-                          </div>
-                          <div>
-                            <h3 className="font-bold text-sm text-gray-900">
-                              {app.name}
-                            </h3>
-                            <p className="text-[10px] text-gray-400 uppercase tracking-widest">
-                              {app.type}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                          <span className="text-[10px] font-black text-blue-600 uppercase italic opacity-0 group-hover:opacity-100 transition-opacity">
-                            Open App →
-                          </span>
-                          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                        </div>
-                      </Link>
-                    ))}
-
-                    {/* Placeholder for future apps */}
-                    <div className="p-4 bg-gray-50/50 border-t border-dashed border-gray-100 text-center">
-                      <p className="text-[10px] text-gray-400 font-medium italic">
-                        + Ready to register Managed or Integrated apps
-                      </p>
-                    </div>
-                    {/* Block-out */}
-                    {/* Register Health & Vitalit App 
-                    {!registeredApps.some(
-                      (app) => app.id === "health-vitality",
-                    ) && (
-                      <div className="p-4 bg-gray-50/50 border-t border-dashed border-gray-100 text-center">
-                        <button
-                          onClick={async () => {
-                            console.log("Button clicked! Checking user...");
-                            if (!activeUser?.uid) {
-                              console.error(
-                                "Registration aborted: No activeUser.uid found.",
-                                activeUser,
-                              );
-                              return;
-                            }
-                            setIsRegistering(true);
-                            try {
-                              console.log(
-                                "Attempting to register Health App for:",
-                                activeUser.uid,
-                              );
-
-                              const result = await registerHealthApp(
-                                activeUser.uid,
-                              );
-
-                              console.log(
-                                "Registration function finished. Result:",
-                                result,
-                              );
-
-                              // Refresh the local list so the UI updates
-                              await loadRegistry();
-                            } catch (err) {
-                              console.error(
-                                "CRITICAL: Health registration flow failed:",
-                                err,
-                              );
-                            } finally {
-                              setIsRegistering(false);
-                            }
-                          }}
-                          disabled={isRegistering}
-                          className="text-[10px] text-blue-600 font-black uppercase tracking-widest hover:text-blue-700 disabled:opacity-50"
-                        >
-                          {isRegistering
-                            ? "Registering..."
-                            : "+ Register Health & Vitality"}
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Register Alternative Income 
-                    {!registeredApps.some(
-                      (app) => app.id === "income-experimenter",
-                    ) && (
-                      <div className="p-4 bg-gray-50/50 border-t border-dashed border-gray-100 text-center">
-                        <button
-                          onClick={async () => {
-                            setIsRegistering(true);
-                            try {
-                              await registerIncomeApp(activeUser.uid);
-                              await loadRegistry();
-                            } catch (err) {
-                              console.error("Income registration failed:", err);
-                            } finally {
-                              setIsRegistering(false);
-                            }
-                          }}
-                          disabled={isRegistering}
-                          className="text-[10px] text-emerald-600 font-black uppercase tracking-widest hover:text-emerald-700 disabled:opacity-50"
-                        >
-                          {isRegistering
-                            ? "Registering..."
-                            : "+ Register Alternative Income"}
-                        </button>
-                      </div>
-                    )}
-                    */}
-                  </div>
-                )}
-              </div>
-            </section>
             <WeeklyGoalModal
               isOpen={showGoalModal}
               onClose={() => setShowGoalModal(false)}
@@ -1277,16 +1066,6 @@ export default function HomePage() {
               initialGoals={weeklyTargets}
               allProjects={allProjects} // 🔥 Ensure this prop is passed!
             />
-          </div>
-
-          {/* QUICK LOG CTA (For Mobile Ease) */}
-          <div className="px-6 mt-4">
-            <Link
-              href="/quick-log"
-              className="block w-full py-4 bg-gray-900 text-white rounded-2xl text-center font-bold shadow-lg active:scale-95 transition-transform"
-            >
-              + Quick Log Time
-            </Link>
           </div>
         </>
       )}
