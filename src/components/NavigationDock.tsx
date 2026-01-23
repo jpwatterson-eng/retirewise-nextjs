@@ -42,8 +42,8 @@ export default function NavigationDock() {
                 href={item.href}
                 className="relative -top-6"
               >
-                <div className="bg-blue-600 rounded-full p-5 shadow-[0_0_20px_rgba(37,99,235,0.4)] active:scale-90 transition-all border-4 border-gray-50">
-                  <Icon size={18} className="text-white" strokeWidth={3} />
+                <div className="bg-blue-600 rounded-full p-3 shadow-[0_0_20px_rgba(37,99,235,0.4)] active:scale-90 transition-all border-4 border-gray-50">
+                  <Icon size={18} className="text-white" strokeWidth={2} />
                 </div>
               </Link>
             );
