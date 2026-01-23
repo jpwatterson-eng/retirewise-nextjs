@@ -18,14 +18,14 @@ export default function NavigationDock() {
 
   const navItems = [
     { name: "Hub", href: "/", icon: LayoutDashboard },
-    { name: "Portfolio", href: "/portfolio", icon: Target }, // 🎯 Restored
     { name: "Health", href: "/apps/health", icon: HeartPulse },
-    { name: "Log", href: "/quick-log", icon: Plus, isAction: true },
     { name: "Yield", href: "/apps/income", icon: Landmark },
+    { name: "Log", href: "/quick-log", icon: Plus, isAction: true },
     { name: "AI", href: "/chat", icon: MessageCircle },
+    { name: "Portfolio", href: "/portfolio", icon: Target },
+
     { name: "Journal", href: "/journal", icon: BookOpen }, // 📖 Restored
     // We can move AI/Chat to a header icon or a secondary menu later - top Nv (23/01/2026)
-    // { href: "/chat", icon: MessageCircle, label: "AI" }
   ];
 
   return (
@@ -43,7 +43,7 @@ export default function NavigationDock() {
                 className="relative -top-6"
               >
                 <div className="bg-blue-600 rounded-full p-3 shadow-[0_0_20px_rgba(37,99,235,0.4)] active:scale-90 transition-all border-4 border-gray-50">
-                  <Icon size={18} className="text-white" strokeWidth={2} />
+                  <Icon size={16} className="text-white" strokeWidth={2} />
                 </div>
               </Link>
             );
@@ -52,7 +52,7 @@ export default function NavigationDock() {
           return (
             <Link key={item.name} href={item.href} className="relative group">
               <div
-                className={`p-4 rounded-full transition-all duration-300 ${
+                className={`p-3 rounded-full transition-all duration-300 ${
                   isActive
                     ? "bg-white/10 text-emerald-400"
                     : "text-gray-400 hover:text-white"
