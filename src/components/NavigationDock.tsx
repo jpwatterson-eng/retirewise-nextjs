@@ -8,6 +8,7 @@ import {
   Landmark,
   Plus,
   MessageSquare,
+  MessageCircle,
   Target,
   BookOpen,
 } from "lucide-react";
@@ -18,8 +19,10 @@ export default function NavigationDock() {
   const navItems = [
     { name: "Hub", href: "/", icon: LayoutDashboard },
     { name: "Portfolio", href: "/portfolio", icon: Target }, // 🎯 Restored
+    { name: "Health", href: "/apps/health", icon: HeartPulse },
     { name: "Log", href: "/quick-log", icon: Plus, isAction: true },
     { name: "Yield", href: "/apps/income", icon: Landmark },
+    { name: "AI", href: "/chat", icon: MessageCircle },
     { name: "Journal", href: "/journal", icon: BookOpen }, // 📖 Restored
     // We can move AI/Chat to a header icon or a secondary menu later - top Nv (23/01/2026)
     // { href: "/chat", icon: MessageCircle, label: "AI" }
