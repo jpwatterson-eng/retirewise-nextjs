@@ -48,7 +48,7 @@ export default function IncomeApp() {
       const historySnap = await getDocs(historyQ);
       setRecentLogs(historySnap.docs.map((d) => ({ id: d.id, ...d.data() })));
 
-      // B. Calculate Monthly Total (Aggregation)
+      // B. Calculate Monthly Total
       const monthQ = query(logsRef, where("monthKey", "==", monthKey));
       const monthSnap = await getDocs(monthQ);
       const total = monthSnap.docs.reduce(
